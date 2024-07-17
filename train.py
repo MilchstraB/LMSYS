@@ -162,7 +162,7 @@ def train():
     )
 
     trainer.train()
-    print(trainer.evaluate(test_dataset))
+    print(trainer.evaluate(test_dataset, metric_key_prefix="test"))
 
 
 if __name__ == "__main__":

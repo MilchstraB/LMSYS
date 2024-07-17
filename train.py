@@ -48,8 +48,8 @@ class TrainingArguments(transformers.TrainingArguments):
     cache_dir: Optional[str] = field(default=None)
     optim: str = field(default="adamw_torch")
     lora_enable: bool = True
-    lora_r: int = 32
-    lora_alpha: int = 16
+    lora_r: int = 16
+    lora_alpha: int = 32
     lora_dropout: float = 0.05
     lora_bias: str = "none"
     gradient_checkpointing: bool = True

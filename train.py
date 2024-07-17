@@ -1,3 +1,5 @@
+import os
+import json
 import transformers
 from transformers import (
     TrainingArguments,
@@ -140,6 +142,7 @@ def train():
     if training_args.debug_fast_test:
         train_dataset = train_dataset.select(range(5))
         val_dataset = val_dataset.select(range(5))
+        test_dataset = test_dataset.select(range(20))
     encode = CustomTokenizer(tokenizer, max_length=model_args.model_max_length)
     train_dataset = train_dataset.map(
         encode, batched=True, remove_columns=train_dataset.column_names
@@ -162,7 +165,10 @@ def train():
     )
 
     trainer.train()
-    print(trainer.evaluate(test_dataset, metric_key_prefix="test"))
+
+    test_result = trainer.evaluate(test_dataset, metric_key_prefix="test")
+    with open(os.path.join(training_args.output_dir, "result.json"), "w") as f:
+        json.dump(test_result, f)
 
 
 if __name__ == "__main__":

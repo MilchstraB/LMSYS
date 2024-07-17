@@ -48,14 +48,21 @@ class TrainingArguments(transformers.TrainingArguments):
     cache_dir: Optional[str] = field(default=None)
     optim: str = field(default="adamw_torch")
     lora_enable: bool = True
-    lora_r: int = 64
+    lora_r: int = 32
     lora_alpha: int = 16
     lora_dropout: float = 0.05
-    lora_weight_path: str = ""
     lora_bias: str = "none"
-    mm_projector_lr: Optional[float] = None
     gradient_checkpointing: bool = True
     lora_target = "all-linear"
+    eval_steps = 0.2
+    eval_strategy = "epoch"
+    eval_on_start = True
+    bf16_full_eval = True
+    output_dir = "gemma_beseline_debug"
+    resume_from_checkpoint = None
+    group_by_length = True
+    debug_fast_test = False
+    label_smoothing_factor: 0.1
 
 
 class CustomTokenizer:
@@ -130,6 +137,9 @@ def train():
     val_dataset = Dataset.from_csv(data_args.val_data_path)
     test_dataset = Dataset.from_csv(data_args.test_data_path)
 
+    if training_args.debug_fast_test:
+        train_dataset = train_dataset.select(range(5))
+        val_dataset = val_dataset.select(range(5))
     encode = CustomTokenizer(tokenizer, max_length=model_args.model_max_length)
     train_dataset = train_dataset.map(
         encode, batched=True, remove_columns=train_dataset.column_names
@@ -146,12 +156,13 @@ def train():
         model=model,
         tokenizer=tokenizer,
         train_dataset=train_dataset,
-        eval_dataset=val_dataset,
+        eval_dataset={"val_ds": val_dataset},
         compute_metrics=compute_metrics,
         data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
     )
 
     trainer.train()
+    print(trainer.evaluate(test_dataset))
 
 
 if __name__ == "__main__":

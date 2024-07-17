@@ -62,7 +62,7 @@ class TrainingArguments(transformers.TrainingArguments):
     resume_from_checkpoint = None
     group_by_length = True
     debug_fast_test = False
-    label_smoothing_factor: 0.0
+    label_smoothing_factor = 0.0
 
 
 class CustomTokenizer:

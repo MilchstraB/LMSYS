@@ -1,5 +1,6 @@
 
 deepspeed train.py \
+    --model_name_or_path /Path/to/Model \
     --output_dir ./output/gemma2_baseline \
     --deepspeed ./scripts/zero2.json \
     --lora_enable True \

@@ -57,7 +57,7 @@ class TrainingArguments(transformers.TrainingArguments):
     gradient_checkpointing: bool = True
     lora_target = "all-linear"
     eval_steps = 0.2
-    eval_strategy = "epoch"
+    eval_strategy = "steps"
     eval_on_start = True
     bf16_full_eval = True
     output_dir = "gemma_beseline_debug"
@@ -65,6 +65,8 @@ class TrainingArguments(transformers.TrainingArguments):
     group_by_length = True
     debug_fast_test = False
     label_smoothing_factor = 0.0
+    warmup_ratio = 0.05
+    logging_steps = 0.005
 
 
 class CustomTokenizer:

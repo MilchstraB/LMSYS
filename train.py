@@ -36,7 +36,7 @@ class ModelArguments:
     instruction: str = field(
         default="Now I will give you a prompt and two responses. You should choose the better response.\n"
     )
-    prompt_template: dict = field(default="Prompt: <\P>")
+    prompt_template: str = field(default="Prompt: <\P>")
     a_template: str = field(default="Response of A: <\A>")
     b_template: str = field(default="Response of B: <\B>")
     add_eos_token: bool = field(default=False)
@@ -56,29 +56,31 @@ class DataArguments:
 
 
 @dataclass
+@dataclass
 class TrainingArguments(transformers.TrainingArguments):
     lora_enable: bool = field(default=True)
     lora_r: int = field(default=16)
     lora_alpha: int = field(default=32)
     lora_dropout: float = field(default=0.05)
     lora_bias: str = "none"
-    lora_target = field(default="all-linear")
-    layers_to_transform: Optional[Union[list[int], int]] = field(default=None)
+    lora_target: str = field(default="all-linear")
+    # layers_to_transform: Optional[Union[List[int], int]] = field(default=None)
     use_dora: bool = field(default=False)
 
     gradient_checkpointing: bool = field(default=True)
-    eval_steps = field(default=0.2)
-    eval_strategy = field(default="steps")
-    eval_on_start = field(default=True)
-    bf16_full_eval = field(default=True)
-    output_dir = field(default="gemma_beseline_debug")
-    group_by_length = field(default=False)
-    debug_fast_test = field(default=False)
+    eval_steps: float = field(default=0.2) 
+    eval_strategy: str = field(default="steps")
+    eval_on_start: bool = field(default=True)
+    bf16_full_eval: bool = field(default=True)
+    output_dir: str = field(default="gemma_beseline_debug") 
+    group_by_length: bool = field(default=False)
+    debug_fast_test: bool = field(default=False)
 
-    label_smoothing_factor = field(default=0.0)
-    warmup_ratio = field(default=0.05)
-    logging_steps = field(default=0.005)
-    report_to = field(default="wandb")
+    label_smoothing_factor: float = field(default=0.0)
+    warmup_ratio: float = field(default=0.05)
+    logging_steps: float = field(default=0.005)
+    report_to: str = field(default="wandb")
+
 
 
 def compute_metrics(eval_preds: EvalPrediction) -> dict:
@@ -116,7 +118,7 @@ def train():
             target_modules=training_args.lora_target,
             lora_dropout=training_args.lora_dropout,
             bias=training_args.lora_bias,
-            layers_to_transform=training_args.layers_to_transform,
+            # layers_to_transform=training_args.layers_to_transform,
             task_type=TaskType.SEQ_CLS,
             use_dora=training_args.use_dora,
         )

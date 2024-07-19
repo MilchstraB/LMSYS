@@ -39,6 +39,7 @@ class ModelArguments:
     prompt_template: dict = field(default="Prompt: <\P>")
     a_template: str = field(default="Response of A: <\A>")
     b_template: str = field(default="Response of B: <\B>")
+    add_eos_token: bool = field(default=False)
 
 
 @dataclass
@@ -56,19 +57,16 @@ class DataArguments:
 
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
-    cache_dir: Optional[str] = field(default=None)
-    optim: str = field(default="adamw_torch")
-
     lora_enable: bool = field(default=True)
     lora_r: int = field(default=16)
     lora_alpha: int = field(default=32)
     lora_dropout: float = field(default=0.05)
     lora_bias: str = "none"
+    lora_target = field(default="all-linear")
     layers_to_transform: Optional[Union[list[int], int]] = field(default=None)
     use_dora: bool = field(default=False)
 
     gradient_checkpointing: bool = field(default=True)
-    lora_target = field(default="True")
     eval_steps = field(default=0.2)
     eval_strategy = field(default="steps")
     eval_on_start = field(default=True)
@@ -100,7 +98,10 @@ def train():
 
     # prepare tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(
-        model_args.model_name_or_path, padding_side="right", use_fast=True
+        model_args.model_name_or_path,
+        padding_side="right",
+        use_fast=True,
+        add_eos_token=model_args.add_eos_token,
     )
     model = AutoModelForSequenceClassification.from_pretrained(
         model_args.model_name_or_path, num_labels=3

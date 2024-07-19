@@ -1,5 +1,6 @@
 result
 output
+scripts/run.sh
 data/*
 *.zip
 temp*

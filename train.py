@@ -58,6 +58,8 @@ class DataArguments:
 @dataclass
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
+    filter_long_text: bool = field(default=False)
+
     lora_enable: bool = field(default=True)
     lora_r: int = field(default=16)
     lora_alpha: int = field(default=32)
@@ -68,11 +70,12 @@ class TrainingArguments(transformers.TrainingArguments):
     use_dora: bool = field(default=False)
 
     gradient_checkpointing: bool = field(default=True)
-    eval_steps: float = field(default=0.2) 
+    eval_steps: float = field(default=0.2)
     eval_strategy: str = field(default="steps")
+    save_strategy: str = field(default="steps")
     eval_on_start: bool = field(default=True)
     bf16_full_eval: bool = field(default=True)
-    output_dir: str = field(default="gemma_beseline_debug") 
+    output_dir: str = field(default="gemma_beseline_debug")
     group_by_length: bool = field(default=False)
     debug_fast_test: bool = field(default=False)
 
@@ -80,7 +83,6 @@ class TrainingArguments(transformers.TrainingArguments):
     warmup_ratio: float = field(default=0.05)
     logging_steps: float = field(default=0.005)
     report_to: str = field(default="wandb")
-
 
 
 def compute_metrics(eval_preds: EvalPrediction) -> dict:
@@ -110,6 +112,7 @@ def train():
     )
     model.enable_input_require_grads()
     model.config.use_cache = False
+    print(training_args)
 
     if training_args.lora_enable:
         lora_config = LoraConfig(
@@ -151,6 +154,10 @@ def train():
         preprocess, batched=True, remove_columns=test_dataset.column_names
     )
 
+    if training_args.filter_long_text:
+        train_dataset = train_dataset.filter(
+            lambda x: x["input_ids"] <= model_args.model_max_length
+        )
     trainer = Trainer(
         args=training_args,
         model=model,

@@ -1,7 +1,8 @@
 result
 output
 scripts/run.sh
-data/*
+wandb
+data
 *.zip
 temp*
 icl_inferencer

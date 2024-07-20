@@ -56,7 +56,10 @@ class CustomTokenizer:
             self.instruction + "\n".join(sample)
             for sample in zip(prompt, response_a, response_b)
         ]
-        add_special_tokens = self.use_chat_template
+        if self.use_chat_template:
+            add_special_tokens = False
+        else:
+            add_special_tokens = True
 
         if self.use_chat_template:
             texts = [

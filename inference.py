@@ -121,7 +121,7 @@ if __name__ == "__main__":
         b_template=cfg.b_template,
         instruction=cfg.instruction,
     )
-    raw_dataset = Dataset.from_csv(cfg.test_data_path).select(range(100))
+    raw_dataset = Dataset.from_csv(cfg.test_data_path)
     test_dataset = raw_dataset.map(preprocess, batched=True)
     data = pd.DataFrame(test_dataset.to_dict())
 

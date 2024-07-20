@@ -33,11 +33,17 @@ class CustomTokenizer:
             ]
         else:
             response_a = [
-                self.a_template.replace("<\A>", self.process_text(t)).replace("<response_a>:", f"<response_a> ({self.process_text(t).count(' ')} words):")
+                self.a_template.replace("<\A>", self.process_text(t)).replace(
+                    "<response_a>:",
+                    f"<response_a> ({self.process_text(t).count(' ')} words):",
+                )
                 for t in batch["response_a"]
             ]
             response_b = [
-                self.b_template.replace("<\B>", self.process_text(t)).replace("<response_b>:", f"<response_b> ({self.process_text(t).count(' ')} words):")
+                self.b_template.replace("<\B>", self.process_text(t)).replace(
+                    "<response_b>:",
+                    f"<response_b> ({self.process_text(t).count(' ')} words):",
+                )
                 for t in batch["response_b"]
             ]
         prompt = [
@@ -49,7 +55,12 @@ class CustomTokenizer:
             for sample in zip(prompt, response_a, response_b)
         ]
 
-        tokenized = self.tokenizer(texts, max_length=self.max_length, truncation=True)
+        tokenized = self.tokenizer(texts, max_length=self.max_length, truncation=False)
+        token_length = [len(t) for t in tokenized["input_ids"]]
+
+        tokenized_truncation = self.tokenizer(
+            texts, max_length=self.max_length, truncation=True
+        )
         labels = []
         for a_win, b_win in zip(batch["winner_model_a"], batch["winner_model_b"]):
             if a_win:
@@ -59,7 +70,7 @@ class CustomTokenizer:
             else:
                 label = 2
             labels.append(label)
-        return {**tokenized, "labels": labels}
+        return {**tokenized_truncation, "labels": labels, "token_length": token_length}
 
     @staticmethod
     def process_text(text: str) -> str:

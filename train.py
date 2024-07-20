@@ -108,11 +108,14 @@ def train():
         add_eos_token=model_args.add_eos_token,
     )
     model = AutoModelForSequenceClassification.from_pretrained(
-        model_args.model_name_or_path, num_labels=3
+        model_args.model_name_or_path,
+        num_labels=3,
+        low_cpu_mem_usage=True,
+        device_map="cuda",
+        torch_dtype=torch.bfloat16,
     )
     model.enable_input_require_grads()
     model.config.use_cache = False
-    print(training_args)
 
     if training_args.lora_enable:
         lora_config = LoraConfig(
@@ -146,18 +149,30 @@ def train():
         show_length=model_args.show_length,
     )
     train_dataset = train_dataset.map(
-        preprocess, batched=True, remove_columns=train_dataset.column_names
+        preprocess,
+        batched=True,
+        remove_columns=train_dataset.column_names,
+        load_from_cache_file=False,
     )
     val_dataset = val_dataset.map(
-        preprocess, batched=True, remove_columns=val_dataset.column_names
+        preprocess,
+        batched=True,
+        remove_columns=val_dataset.column_names,
+        load_from_cache_file=False,
     )
     test_dataset = test_dataset.map(
-        preprocess, batched=True, remove_columns=test_dataset.column_names
+        preprocess,
+        batched=True,
+        remove_columns=test_dataset.column_names,
+        load_from_cache_file=False,
     )
 
     if training_args.filter_long_text:
         train_dataset = train_dataset.filter(
-            lambda x: x["input_ids"] <= model_args.model_max_length
+            lambda x: x["token_length"] <= model_args.model_max_length
+        )
+        print(
+            f"Filter max length: {model_args.model_max_length}, total training data: {len(train_dataset)}"
         )
     trainer = Trainer(
         args=training_args,

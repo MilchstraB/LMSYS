@@ -40,6 +40,7 @@ class ModelArguments:
     a_template: str = field(default="Response of A: <\A>")
     b_template: str = field(default="Response of B: <\B>")
     add_eos_token: bool = field(default=False)
+    show_length: bool = field(default=False)
 
 
 @dataclass
@@ -57,6 +58,8 @@ class DataArguments:
 
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
+    filter_long_text: bool = field(default=False)
+
     lora_enable: bool = field(default=True)
     lora_r: int = field(default=16)
     lora_alpha: int = field(default=32)
@@ -69,6 +72,7 @@ class TrainingArguments(transformers.TrainingArguments):
     gradient_checkpointing: bool = field(default=True)
     eval_steps: float = field(default=0.2)
     eval_strategy: str = field(default="steps")
+    save_strategy: str = field(default="steps")
     eval_on_start: bool = field(default=True)
     bf16_full_eval: bool = field(default=True)
     output_dir: str = field(default="gemma_beseline_debug")
@@ -108,6 +112,7 @@ def train():
     )
     model.enable_input_require_grads()
     model.config.use_cache = False
+    print(training_args)
 
     if training_args.lora_enable:
         lora_config = LoraConfig(
@@ -138,6 +143,7 @@ def train():
         a_template=model_args.a_template,
         b_template=model_args.b_template,
         instruction=model_args.instruction,
+        show_length=model_args.show_length,
     )
     train_dataset = train_dataset.map(
         preprocess, batched=True, remove_columns=train_dataset.column_names
@@ -149,6 +155,10 @@ def train():
         preprocess, batched=True, remove_columns=test_dataset.column_names
     )
 
+    if training_args.filter_long_text:
+        train_dataset = train_dataset.filter(
+            lambda x: x["input_ids"] <= model_args.model_max_length
+        )
     trainer = Trainer(
         args=training_args,
         model=model,

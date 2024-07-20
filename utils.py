@@ -11,6 +11,7 @@ class CustomTokenizer:
         a_template: str,
         b_template: str,
         instruction: str,
+        show_length: bool = False,
     ) -> None:
         self.tokenizer = tokenizer
         self.max_length = max_length
@@ -18,19 +19,30 @@ class CustomTokenizer:
         self.b_template = b_template
         self.a_template = a_template
         self.instruction = instruction
+        self.show_length = show_length
 
     def __call__(self, batch: dict) -> dict:
+        if self.show_length == False:
+            response_a = [
+                self.a_template.replace("<\A>", self.process_text(t))
+                for t in batch["response_a"]
+            ]
+            response_b = [
+                self.b_template.replace("<\B>", self.process_text(t))
+                for t in batch["response_b"]
+            ]
+        else:
+            response_a = [
+                self.a_template.replace("<\A>", self.process_text(t)).replace("<response_a>:", f"<response_a> ({self.process_text(t).count(' ')} words):")
+                for t in batch["response_a"]
+            ]
+            response_b = [
+                self.b_template.replace("<\B>", self.process_text(t)).replace("<response_b>:", f"<response_b> ({self.process_text(t).count(' ')} words):")
+                for t in batch["response_b"]
+            ]
         prompt = [
             self.prompt_template.replace("<\P>", self.process_text(t))
             for t in batch["prompt"]
-        ]
-        response_a = [
-            self.a_template.replace("<\A>", self.process_text(t))
-            for t in batch["response_a"]
-        ]
-        response_b = [
-            self.b_template.replace("<\B>", self.process_text(t))
-            for t in batch["response_b"]
         ]
         texts = [
             self.instruction + "\n".join(sample)

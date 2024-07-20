@@ -1,6 +1,7 @@
 result
 output
 scripts/run.sh
+wandb
 data
 *.zip
 temp*

@@ -38,3 +38,4 @@ deepspeed train.py \
     --save_strategy "epoch" \
     --learning_rate 1e-4 \
     --lr_scheduler_type "cosine" \
+    --show_length True

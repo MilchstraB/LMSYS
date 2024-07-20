@@ -1,80 +1,86 @@
-import transformers
-from transformers import (
-    TrainingArguments,
-    PreTrainedTokenizerBase,
-    AutoTokenizer,
-    AutoModelForSequenceClassification,
-    EvalPrediction,
-    Trainer,
-    DataCollatorWithPadding,
-)
-from peft import LoraConfig, get_peft_model, TaskType
-from datasets import Dataset
-from typing import Optional, List, Union, Dict
+import json
+import os
 from dataclasses import dataclass, field
-from sklearn.metrics import log_loss, accuracy_score
+from typing import Dict, List, Optional, Union
 
 import torch
+import transformers
+from datasets import Dataset
+from peft import LoraConfig, TaskType, get_peft_model
+from sklearn.metrics import accuracy_score, log_loss
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    DataCollatorWithPadding,
+    EvalPrediction,
+    Trainer,
+    TrainingArguments,
+)
+
+from utils import CustomTokenizer
+
+os.environ["WANDB_PROJECT"] = "LMSYS_Text_ClS"
 
 
 @dataclass
 class ModelArguments:
-    model_name_or_path: Optional[str] = field(default="google/gemma-2-9b-it")
+    model_name_or_path: Optional[str] = field(
+        default="/data/share/pyz/model_weight/gemma-2-9b-it"
+    )
+    model_max_length: int = field(
+        default=2048,
+        metadata={
+            "help": "Maximum sequence length. Sequences will be right padded (and possibly truncated)."
+        },
+    )
+    instruction: str = field(
+        default="Now I will give you a prompt and two responses. You should choose the better response.\n"
+    )
+    prompt_template: str = field(default="Prompt: <\P>")
+    a_template: str = field(default="Response of A: <\A>")
+    b_template: str = field(default="Response of B: <\B>")
+    add_eos_token: bool = field(default=False)
 
 
 @dataclass
 class DataArguments:
-    train_data_path: str = field(default=None, metadata={"help": "Path to the training data."})
-    val_data_path: str = field(default=None, metadata={"help": "Path to the validation data."})
-    test_data_path: str = field(default=None, metadata={"help": "Path to the test data."})
+    train_data_path: str = field(
+        default="data/split/train.csv", metadata={"help": "Path to the training data."}
+    )
+    val_data_path: str = field(
+        default="data/split/val.csv", metadata={"help": "Path to the validation data."}
+    )
+    test_data_path: str = field(
+        default="data/split/test.csv", metadata={"help": "Path to the test data."}
+    )
 
 
 @dataclass
-class TrainingArguments(TrainingArguments):
-    cache_dir: Optional[str] = field(default=None)
-    optim: str = field(default="adamw_torch")
-    max_length: int = field(
-        default=2048,
-        metadata={"help": "Maximum sequence length. Sequences will be right padded (and possibly truncated)."},
-    )
-    lora_enable: bool = False
-    lora_r: int = 16
-    lora_alpha: int = 32
-    lora_dropout: float = 0.05
+@dataclass
+class TrainingArguments(transformers.TrainingArguments):
+    lora_enable: bool = field(default=True)
+    lora_r: int = field(default=16)
+    lora_alpha: int = field(default=32)
+    lora_dropout: float = field(default=0.05)
     lora_bias: str = "none"
-    lora_target: Union[str, List] = "all-linear"
-    gradient_checkpointing_kwargs: Dict = {"use_reentrant": True}
+    lora_target: str = field(default="all-linear")
+    # layers_to_transform: Optional[Union[List[int], int]] = field(default=None)
+    use_dora: bool = field(default=False)
 
+    gradient_checkpointing: bool = field(default=True)
+    eval_steps: float = field(default=0.2) 
+    eval_strategy: str = field(default="steps")
+    eval_on_start: bool = field(default=True)
+    bf16_full_eval: bool = field(default=True)
+    output_dir: str = field(default="gemma_beseline_debug") 
+    group_by_length: bool = field(default=False)
+    debug_fast_test: bool = field(default=False)
 
-class CustomTokenizer:
-    def __init__(
-        self, 
-        tokenizer: PreTrainedTokenizerBase, 
-        max_length: int
-    ) -> None:
-        self.tokenizer = tokenizer
-        self.max_length = max_length
-        
-    def __call__(self, batch: dict) -> dict:
-        prompt = ["<prompt>: " + self.process_text(t) for t in batch["prompt"]]
-        response_a = ["\n\n<response_a>: " + self.process_text(t) for t in batch["response_a"]]
-        response_b = ["\n\n<response_b>: " + self.process_text(t) for t in batch["response_b"]]
-        texts = [p + r_a + r_b for p, r_a, r_b in zip(prompt, response_a, response_b)]
-        tokenized = self.tokenizer(texts, max_length=self.max_length, truncation=True)
-        labels=[]
-        for a_win, b_win in zip(batch["winner_model_a"], batch["winner_model_b"]):
-            if a_win:
-                label = 0
-            elif b_win:
-                label = 1
-            else:
-                label = 2
-            labels.append(label)
-        return {**tokenized, "labels": labels}
-        
-    @staticmethod
-    def process_text(text: str) -> str:
-        return " ".join(eval(text, {"null": ""}))
+    label_smoothing_factor: float = field(default=0.0)
+    warmup_ratio: float = field(default=0.05)
+    logging_steps: float = field(default=0.005)
+    report_to: str = field(default="wandb")
+
 
 
 def compute_metrics(eval_preds: EvalPrediction) -> dict:
@@ -87,12 +93,21 @@ def compute_metrics(eval_preds: EvalPrediction) -> dict:
 
 
 def train():
-    parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
+    parser = transformers.HfArgumentParser(
+        (ModelArguments, DataArguments, TrainingArguments)
+    )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
     # prepare tokenizer and model
-    tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, padding_side="right", use_fast=True)
-    model = AutoModelForSequenceClassification.from_pretrained(model_args.model_name_or_path, num_labels=3, torch_dtype=torch.bfloat16)
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_args.model_name_or_path,
+        padding_side="right",
+        use_fast=True,
+        add_eos_token=model_args.add_eos_token,
+    )
+    model = AutoModelForSequenceClassification.from_pretrained(
+        model_args.model_name_or_path, num_labels=3
+    )
     model.enable_input_require_grads()
     model.config.use_cache = False
 
@@ -103,23 +118,41 @@ def train():
             target_modules=training_args.lora_target,
             lora_dropout=training_args.lora_dropout,
             bias=training_args.lora_bias,
+            # layers_to_transform=training_args.layers_to_transform,
             task_type=TaskType.SEQ_CLS,
+            use_dora=training_args.use_dora,
         )
         model = get_peft_model(model, lora_config)
-
 
     # prepare data
     train_dataset = Dataset.from_csv(data_args.train_data_path)
     val_dataset = Dataset.from_csv(data_args.val_data_path)
     test_dataset = Dataset.from_csv(data_args.test_data_path)
 
-    encode = CustomTokenizer(tokenizer, max_length=training_args.max_length)
-    train_dataset = train_dataset.map(encode, batched=True, remove_columns=train_dataset.column_names)
-    val_dataset = val_dataset.map(encode, batched=True, remove_columns=val_dataset.column_names)
-    test_dataset = test_dataset.map(encode, batched=True, remove_columns=test_dataset.column_names)
+    if training_args.debug_fast_test:
+        train_dataset = train_dataset.select(range(5))
+        val_dataset = val_dataset.select(range(5))
+        test_dataset = test_dataset.select(range(20))
+    preprocess = CustomTokenizer(
+        tokenizer,
+        max_length=model_args.model_max_length,
+        prompt_template=model_args.prompt_template,
+        a_template=model_args.a_template,
+        b_template=model_args.b_template,
+        instruction=model_args.instruction,
+    )
+    train_dataset = train_dataset.map(
+        preprocess, batched=True, remove_columns=train_dataset.column_names
+    )
+    val_dataset = val_dataset.map(
+        preprocess, batched=True, remove_columns=val_dataset.column_names
+    )
+    test_dataset = test_dataset.map(
+        preprocess, batched=True, remove_columns=test_dataset.column_names
+    )
 
     trainer = Trainer(
-        args=training_args, 
+        args=training_args,
         model=model,
         tokenizer=tokenizer,
         train_dataset=train_dataset,
@@ -129,6 +162,10 @@ def train():
     )
 
     trainer.train()
+
+    test_result = trainer.evaluate(test_dataset, metric_key_prefix="test")
+    with open(os.path.join(training_args.output_dir, "result.json"), "w") as f:
+        json.dump(test_result, f)
 
 
 if __name__ == "__main__":

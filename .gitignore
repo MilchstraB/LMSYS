@@ -1,7 +1,7 @@
 result
 output
 scripts/run.sh
-data
+data/*
 *.zip
 temp*
 icl_inferencer

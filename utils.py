@@ -60,7 +60,7 @@ class CustomTokenizer:
 
         if self.use_chat_template:
             texts = [
-                "<bos><start_of_turn>user\n<<content>><end_of_turn>\n<start_of_turn>model".replace(
+                "<bos><start_of_turn>user\n<<content>><end_of_turn>\n<start_of_turn>model\n".replace(
                     "<content>", t
                 )
                 for t in texts

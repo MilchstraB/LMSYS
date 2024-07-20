@@ -56,7 +56,6 @@ class DataArguments:
 
 
 @dataclass
-@dataclass
 class TrainingArguments(transformers.TrainingArguments):
     lora_enable: bool = field(default=True)
     lora_r: int = field(default=16)
@@ -68,11 +67,11 @@ class TrainingArguments(transformers.TrainingArguments):
     use_dora: bool = field(default=False)
 
     gradient_checkpointing: bool = field(default=True)
-    eval_steps: float = field(default=0.2) 
+    eval_steps: float = field(default=0.2)
     eval_strategy: str = field(default="steps")
     eval_on_start: bool = field(default=True)
     bf16_full_eval: bool = field(default=True)
-    output_dir: str = field(default="gemma_beseline_debug") 
+    output_dir: str = field(default="gemma_beseline_debug")
     group_by_length: bool = field(default=False)
     debug_fast_test: bool = field(default=False)
 
@@ -80,7 +79,6 @@ class TrainingArguments(transformers.TrainingArguments):
     warmup_ratio: float = field(default=0.05)
     logging_steps: float = field(default=0.005)
     report_to: str = field(default="wandb")
-
 
 
 def compute_metrics(eval_preds: EvalPrediction) -> dict:

@@ -12,6 +12,7 @@ class CustomTokenizer:
         b_template: str,
         instruction: str,
         show_length: bool = False,
+        use_chat_template: bool = False,
     ) -> None:
         self.tokenizer = tokenizer
         self.max_length = max_length
@@ -20,6 +21,7 @@ class CustomTokenizer:
         self.a_template = a_template
         self.instruction = instruction
         self.show_length = show_length
+        self.use_chat_template = use_chat_template
 
     def __call__(self, batch: dict) -> dict:
         if self.show_length == False:
@@ -54,12 +56,28 @@ class CustomTokenizer:
             self.instruction + "\n".join(sample)
             for sample in zip(prompt, response_a, response_b)
         ]
+        add_special_tokens = self.use_chat_template
 
-        tokenized = self.tokenizer(texts, max_length=self.max_length, truncation=False)
+        if self.use_chat_template:
+            texts = [
+                "<bos><start_of_turn>user\n<<content>><end_of_turn>\n<start_of_turn>model".replace(
+                    "<content>", t
+                )
+                for t in texts
+            ]
+        tokenized = self.tokenizer(
+            texts,
+            max_length=self.max_length,
+            truncation=False,
+            add_special_tokens=add_special_tokens,
+        )
         token_length = [len(t) for t in tokenized["input_ids"]]
 
         tokenized_truncation = self.tokenizer(
-            texts, max_length=self.max_length, truncation=True
+            texts,
+            max_length=self.max_length,
+            truncation=True,
+            add_special_tokens=add_special_tokens,
         )
         labels = []
         for a_win, b_win in zip(batch["winner_model_a"], batch["winner_model_b"]):

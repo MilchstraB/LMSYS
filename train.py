@@ -34,13 +34,14 @@ class ModelArguments:
         },
     )
     instruction: str = field(
-        default="Now I will give you a prompt and two responses. You should choose the better response.\n"
+        default="Now I will give you a prompt and two responses. You should choose the better response. If the responses are relatively the same, respond with 'tie'. Otherwise respond with 'A' or 'B' to indicate which is better.\n"
     )
     prompt_template: str = field(default="Prompt: <\P>")
     a_template: str = field(default="Response of A: <\A>")
     b_template: str = field(default="Response of B: <\B>")
     add_eos_token: bool = field(default=False)
     show_length: bool = field(default=False)
+    use_chat_template: bool = field(default=False)
 
 
 @dataclass

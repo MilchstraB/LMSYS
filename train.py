@@ -74,7 +74,6 @@ class TrainingArguments(transformers.TrainingArguments):
     eval_steps: float = field(default=0.2)
     eval_strategy: str = field(default="steps")
     save_strategy: str = field(default="steps")
-    eval_on_start: bool = field(default=True)
     bf16_full_eval: bool = field(default=True)
     output_dir: str = field(default="gemma_beseline_debug")
     group_by_length: bool = field(default=False)
@@ -186,10 +185,11 @@ def train():
     )
 
     trainer.train()
+    val_result = trainer.evaluate(val_dataset, metric_key_prefix="val")
 
     test_result = trainer.evaluate(test_dataset, metric_key_prefix="test")
     with open(os.path.join(training_args.output_dir, "result.json"), "w") as f:
-        json.dump(test_result, f)
+        json.dump([test_result, val_result], f)
 
 
 if __name__ == "__main__":

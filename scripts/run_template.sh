@@ -21,7 +21,6 @@ deepspeed train.py \
     --lora_target "all-linear" \
     --eval_steps 0.2 \
     --eval_strategy "steps" \
-    --eval_on_start True \
     --bf16_full_eval True \
     --output_dir "gemma_beseline_debug" \
     --group_by_length False \

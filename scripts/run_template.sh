@@ -18,7 +18,7 @@ deepspeed train.py \
     --lora_dropout 0.05 \
     --use_dora False \
     --gradient_checkpointing True \
-    --lora_target "True" \
+    --lora_target "all-linear" \
     --eval_steps 0.2 \
     --eval_strategy "steps" \
     --eval_on_start True \
@@ -38,4 +38,4 @@ deepspeed train.py \
     --save_strategy "epoch" \
     --learning_rate 1e-4 \
     --lr_scheduler_type "cosine" \
-    --show_length True
+    --show_length False

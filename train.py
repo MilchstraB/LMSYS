@@ -40,6 +40,7 @@ class ModelArguments:
     a_template: str = field(default="Response of A: <\A>")
     b_template: str = field(default="Response of B: <\B>")
     add_eos_token: bool = field(default=False)
+    show_length: bool = field(default=False)
 
 
 @dataclass
@@ -143,6 +144,7 @@ def train():
         a_template=model_args.a_template,
         b_template=model_args.b_template,
         instruction=model_args.instruction,
+        show_length=model_args.show_length,
     )
     train_dataset = train_dataset.map(
         preprocess, batched=True, remove_columns=train_dataset.column_names

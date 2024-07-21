@@ -83,6 +83,8 @@ class TrainingArguments(transformers.TrainingArguments):
     warmup_ratio: float = field(default=0.05)
     logging_steps: float = field(default=0.005)
     report_to: str = field(default="wandb")
+    
+    torch_compile: bool = field(default=True)
 
 
 def compute_metrics(eval_preds: EvalPrediction) -> dict:

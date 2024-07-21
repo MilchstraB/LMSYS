@@ -75,7 +75,7 @@ class TrainingArguments(transformers.TrainingArguments):
     eval_strategy: str = field(default="steps")
     save_strategy: str = field(default="steps")
     bf16_full_eval: bool = field(default=True)
-    output_dir: str = field(default="gemma_beseline_debug")
+    output_dir: str = field(default="output")
     group_by_length: bool = field(default=False)
     debug_fast_test: bool = field(default=False)
 
@@ -99,7 +99,9 @@ def train():
         (ModelArguments, DataArguments, TrainingArguments)
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-
+    training_args.output_dir = os.path.join(
+        training_args.output_dir, training_args.run_name
+    )
     # prepare tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.model_name_or_path,

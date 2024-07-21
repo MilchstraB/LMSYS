@@ -56,11 +56,8 @@ class CustomTokenizer:
             self.instruction + "\n".join(sample)
             for sample in zip(prompt, response_a, response_b)
         ]
-        if self.use_chat_template:
-            add_special_tokens = False
-        else:
-            add_special_tokens = True
 
+        add_special_tokens = not self.use_chat_template
         if self.use_chat_template:
             texts = [
                 "<bos><start_of_turn>user\n<<content>><end_of_turn>\n<start_of_turn>model\n".replace(

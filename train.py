@@ -25,7 +25,7 @@ os.environ["WANDB_PROJECT"] = "LMSYS_Text_ClS"
 @dataclass
 class ModelArguments:
     model_name_or_path: Optional[str] = field(
-        default="/data/share/pyz/model_weight/gemma-2-9b-it"
+        default="/home/share/pyz/model_weight/gemma-2-9b-it"
     )
     model_max_length: int = field(
         default=2048,
@@ -41,7 +41,7 @@ class ModelArguments:
     b_template: str = field(default="Response of B: <\B>")
     add_eos_token: bool = field(default=False)
     show_length: bool = field(default=False)
-    use_chat_template: bool = field(default=False)
+    use_chat_template: bool = field(default=True)
 
 
 @dataclass
@@ -83,7 +83,7 @@ class TrainingArguments(transformers.TrainingArguments):
     warmup_ratio: float = field(default=0.05)
     logging_steps: float = field(default=0.005)
     report_to: str = field(default="wandb")
-    
+
     torch_compile: bool = field(default=True)
 
 
@@ -151,6 +151,7 @@ def train():
         b_template=model_args.b_template,
         instruction=model_args.instruction,
         show_length=model_args.show_length,
+        use_chat_template=model_args.use_chat_template,
     )
     train_dataset = train_dataset.map(
         preprocess,

@@ -8,6 +8,7 @@ print(f"There exist {n_dups} duplicated rows.")
 df = df.drop_duplicates(
     subset=["prompt", "response_a", "response_b"], keep="first", ignore_index=True
 )
+df.to_csv("/h3cstore_nt/pc_embedding/mm3d/LMSYS/data/split/all_data.csv", index=False)
 
 train_df, temp_df = train_test_split(df, test_size=0.2, random_state=42)
 val_df, test_df = train_test_split(temp_df, test_size=0.5, random_state=42)

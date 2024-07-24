@@ -8,6 +8,15 @@ def parse_text(text: str) -> list:
     return eval(text, {"null": ""})
 
 
+default_chat_template = """<bos><start_of_turn>user
+{prompt}\n
+<response_a> ({a_word_num} words): {response_a}\n
+<response_b> ({b_word_num} words): {response_b}
+<end_of_turn>
+<start_of_turn>model
+"""
+
+
 class TextProcessorV2:
     def __init__(
         self,

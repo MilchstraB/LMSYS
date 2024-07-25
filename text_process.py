@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Dict, List, Optional, Union
 
 import numpy as np
@@ -24,13 +25,105 @@ class TextProcessorV2:
         length_assign_method: str,
         tokenizer: AutoTokenizer,
         max_length: int,
-        chat_template: Optional[str] = None,
+        chat_template: Optional[str] = default_chat_template,
+        get_labels: Optional[bool] = True,
     ):
         self.truncation_method = truncation_method
         self.length_assign_method = length_assign_method
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.chat_template = chat_template
+        self.get_labels = get_labels
+
+    def preprocess_batch(
+        self, batch_data: Dict[str, List[str]]
+    ) -> Dict[str, List[str]]:
+        batch_prompt = [" ".join(parse_text(t)).strip() for t in batch_data["prompt"]]
+        batch_response_a = [
+            " ".join(parse_text(t)).strip() for t in batch_data["response_a"]
+        ]
+        batch_response_b = [
+            " ".join(parse_text(t)).strip() for t in batch_data["response_b"]
+        ]
+        return batch_prompt, batch_response_a, batch_response_b
+
+    def compute_token_num(self, text: str) -> int:
+        return len(
+            self.tokenizer(text, add_special_tokens=False, truncation=False)[
+                "input_ids"
+            ]
+        )
+
+    def format_texts(
+        self,
+        batch_prompt: List[str],
+        batch_response_a: List[str],
+        batch_response_b: List[str],
+        response_a_token_num: List[int],
+        response_b_token_num: List[int],
+    ) -> List[str]:
+        texts = []
+        for prompt, response_a, response_b, a_num, b_num in zip(
+            batch_prompt,
+            batch_response_a,
+            batch_response_b,
+            response_a_token_num,
+            response_b_token_num,
+        ):
+            if "a_word_num" in self.chat_template:
+                text = self.chat_template.format(
+                    prompt=prompt,
+                    response_a=response_a,
+                    response_b=response_b,
+                    a_word_num=a_num,
+                    b_word_num=b_num,
+                )
+            else:
+                text = self.chat_template.format(
+                    prompt=prompt,
+                    response_a=response_a,
+                    response_b=response_b,
+                )
+            texts.append(text)
+        return texts
+
+    def get_part_capacity(
+        self,
+        prompt_token_num: int,
+        response_a_token_num: int,
+        response_b_token_num: int,
+        cur_max_token_capacity: int,
+    ) -> tuple:
+        if self.length_assign_method == "method_1":
+            response_token_capacity = max(cur_max_token_capacity - prompt_token_num, 0)
+            prompt_capacity = min(prompt_token_num, cur_max_token_capacity)
+            response_a_capacity = int(
+                response_token_capacity
+                * response_a_token_num
+                / (response_a_token_num + response_b_token_num)
+            )
+            response_b_capacity = response_token_capacity - response_a_capacity
+        elif self.length_assign_method == "method_2":
+            total_tokens = (
+                prompt_token_num + response_a_token_num + response_b_token_num
+            )
+            prompt_capacity = int(
+                cur_max_token_capacity * prompt_token_num / total_tokens
+            )
+            response_a_capacity = int(
+                cur_max_token_capacity * response_a_token_num / total_tokens
+            )
+            response_b_capacity = (
+                cur_max_token_capacity - prompt_capacity - response_a_capacity
+            )
+        elif self.length_assign_method == "method_3":
+            response_token_capacity = max(cur_max_token_capacity - prompt_token_num, 0)
+            prompt_capacity = min(prompt_token_num, cur_max_token_capacity)
+            response_a_capacity = response_token_capacity // 2
+            response_b_capacity = response_token_capacity - response_a_capacity
+        else:
+            raise ValueError("Method not supported")
+        return prompt_capacity, response_a_capacity, response_b_capacity
 
     def __call__(self, batch_data):
         """
@@ -49,138 +142,79 @@ class TextProcessorV2:
             - 方法一：prompt全部保留，response_a和response_b按长度分配
             - 方法二：prompt，response_a, response_b都按长度分配
             - 方法三：prompt全部保留，response_a和response_b平分
+            - 方法四：原先的方法，直接截断response_b
             ...
         """
-
-    def __call__(self, batch_data):
-        """ """
-        # 预处理文本：
-        batch_prompt = [" ".join(parse_text(t)).strip() for t in batch_data["prompt"]]
-        batch_response_a = [
-            " ".join(parse_text(t)).strip() for t in batch_data["response_a"]
-        ]
-        batch_response_b = [
-            " ".join(parse_text(t)).strip() for t in batch_data["response_b"]
-        ]
-
-        def compute_token_num(text: str):
-            return len(
-                self.tokenizer(text, add_special_tokens=False, truncation=False)[
-                    "input_ids"
-                ]
-            )
-
-        # compute token num of prompt, response_a, response_b
-        a = [compute_token_num(p) for p in batch_prompt]
-        prompt_token_num = np.array([compute_token_num(p) for p in batch_prompt])
+        batch_prompt, batch_response_a, batch_response_b = self.preprocess_batch(
+            batch_data
+        )
+        final_input = defaultdict(list)
+        if self.get_labels:
+            final_input["labels"] = self.get_labels(batch_data)
+        prompt_token_num = np.array([self.compute_token_num(p) for p in batch_prompt])
         response_a_token_num = np.array(
-            [compute_token_num(p) for p in batch_response_a]
+            [self.compute_token_num(r) for r in batch_response_a]
         )
         response_b_token_num = np.array(
-            [compute_token_num(p) for p in batch_response_b]
+            [self.compute_token_num(r) for r in batch_response_b]
         )
+        if self.length_assign_method == "method_4":
+            texts = self.format_texts(
+                batch_prompt,
+                batch_response_a,
+                batch_response_b,
+                response_a_token_num,
+                response_b_token_num,
+            )
+            tokenized = self.tokenizer(
+                texts,
+                max_length=self.max_length,
+                truncation=False,
+                add_special_tokens=False,
+            )
+            token_length = [len(t) for t in tokenized["input_ids"]]
 
-        # 使用caht_template拼接所有文本 如果"a_word_num"在chat_template中则format中添加这个参数
-        concat_batch_text = []
-        for prompt, response_a, response_b, a_num, b_num in zip(
+            tokenized_truncation = self.tokenizer(
+                texts,
+                max_length=self.max_length,
+                truncation=True,
+                add_special_tokens=False,
+            )
+            for key in tokenized_truncation:
+                final_input[key] = tokenized_truncation[key]
+            final_input["token_length"] = token_length
+            return final_input
+
+        concat_batch_text = self.format_texts(
             batch_prompt,
             batch_response_a,
             batch_response_b,
             response_a_token_num,
             response_b_token_num,
-        ):
-            if "a_word_num" in self.chat_template:
-                text = self.chat_template.format(
-                    prompt=prompt,
-                    response_a=response_a,
-                    response_b=response_b,
-                    a_word_num=a_num,
-                    b_word_num=b_num,
-                )
-                concat_batch_text.append(text)
-            else:
-                text = self.chat_template.format(
-                    prompt=prompt,
-                    response_a=response_a,
-                    response_b=response_b,
-                )
-                concat_batch_text.append(text)
-        concat_batch_text_token_num = np.array(
-            [compute_token_num(text) for text in concat_batch_text]
         )
-        # 除了prompt, response_a, response_b之外的其他部分的token num
+        concat_batch_text_token_num = np.array(
+            [self.compute_token_num(text) for text in concat_batch_text]
+        )
+
         other_part_token_num = (
             concat_batch_text_token_num
             - prompt_token_num
             - response_a_token_num
             - response_b_token_num
         )
-
-        # 计算最多容纳多少数据token, 10作为余量
         max_token_capacity = self.max_length - other_part_token_num - 10
-
-        def get_part_capacity(
-            prompt_token_num,
-            response_a_token_num,
-            response_b_token_num,
-            cur_max_token_capacity,
-        ):
-            # 按比例分配给各部分
-            # 方法一：prompt全部保留，response_a和response_b按长度分配
-            if self.length_assign_method == "method_1":
-                response_token_capacity = max(
-                    cur_max_token_capacity - prompt_token_num, 0
-                )
-                prompt_capacity = min(prompt_token_num, cur_max_token_capacity)
-                response_a_capacity = int(
-                    response_token_capacity
-                    * response_a_token_num
-                    / (response_a_token_num + response_b_token_num)
-                )
-                response_b_capacity = response_token_capacity - response_a_capacity
-            # 方法二：prompt，response_a, response_b都按长度分配:
-            elif self.length_assign_method == "method_2":
-                prompt_capacity = int(
-                    cur_max_token_capacity
-                    * prompt_token_num
-                    / (prompt_token_num + response_a_token_num + response_b_token_num)
-                )
-                response_a_capacity = int(
-                    cur_max_token_capacity
-                    * response_a_token_num
-                    / (prompt_token_num + response_a_token_num + response_b_token_num)
-                )
-                response_b_capacity = (
-                    cur_max_token_capacity - prompt_capacity - response_a_capacity
-                )
-            # 方法三：prompt全部保留，response_a和response_b平分
-            elif self.length_assign_method == "method_3":
-                response_token_capacity = max(
-                    cur_max_token_capacity - prompt_token_num, 0
-                )
-                prompt_capacity = min(prompt_token_num, cur_max_token_capacity)
-                response_a_capacity = int(response_token_capacity * 0.5)
-                response_b_capacity = response_token_capacity - response_a_capacity
-            else:
-                raise ValueError("Method not supported")
-            return prompt_capacity, response_a_capacity, response_b_capacity
-
-        final_input = {"input_ids": [], "attention_mask": []}
         for i, token_num in enumerate(concat_batch_text_token_num):
             if token_num > self.max_length:
                 prompt_capacity, response_a_capacity, response_b_capacity = (
-                    get_part_capacity(
+                    self.get_part_capacity(
                         prompt_token_num[i],
                         response_a_token_num[i],
                         response_b_token_num[i],
                         max_token_capacity[i],
                     )
                 )
-                # capacity -1 留一定的余地，防止超长
                 if self.truncation_method in ["left", "right"]:
-                    # 保留最后面的文本内容
                     self.tokenizer.truncation_side = self.truncation_method
-
                     prompt = self.tokenizer(
                         batch_prompt[i],
                         max_length=max(prompt_capacity, 0),
@@ -199,46 +233,31 @@ class TextProcessorV2:
                         truncation=True,
                         add_special_tokens=False,
                     )
-                else:
-                    raise ValueError("Truncation method not supported")
-                # decode them to text
-                prompt_text = self.tokenizer.decode(prompt["input_ids"]).strip()
-                response_a_text = self.tokenizer.decode(response_a["input_ids"]).strip()
-                response_b_text = self.tokenizer.decode(response_b["input_ids"]).strip()
 
-                # concat them if "a_word_num" in chat_template
-                if "a_word_num" in self.chat_template:
+                    prompt_text = self.tokenizer.decode(prompt["input_ids"]).strip()
+                    response_a_text = self.tokenizer.decode(
+                        response_a["input_ids"]
+                    ).strip()
+                    response_b_text = self.tokenizer.decode(
+                        response_b["input_ids"]
+                    ).strip()
+
                     text = self.chat_template.format(
                         prompt=prompt_text,
                         response_a=response_a_text,
                         response_b=response_b_text,
                         a_word_num=response_a_token_num[i],
-                        b_word_num=response_a_token_num[i],
+                        b_word_num=response_b_token_num[i],
                     )
                 else:
-                    text = self.chat_template.format(
-                        prompt=prompt_text,
-                        response_a=response_a_text,
-                        response_b=response_b_text,
-                    )
-                # encode the text to input_ids and attention_mask
+                    raise ValueError("Truncation method not supported")
                 inputs = self.tokenizer(
                     text,
                     max_length=self.max_length,
                     truncation=False,
                     add_special_tokens=False,
                 )
-                if len(inputs["input_ids"]) > self.max_length:
-                    # print(response_a_text)
-                    print(prompt_capacity, response_a_capacity, response_b_capacity)
-                    print("=" * 80)
-                    # print(response_b_text)
-                    print(text)
-                assert (
-                    len(inputs["input_ids"]) <= self.max_length
-                ), f"{len(inputs['input_ids'])}"
-                final_input["input_ids"].append(inputs["input_ids"])
-                final_input["attention_mask"].append(inputs["attention_mask"])
+                assert len(inputs["input_ids"]) <= self.max_length
             else:
                 inputs = self.tokenizer(
                     concat_batch_text[i],
@@ -247,7 +266,17 @@ class TextProcessorV2:
                     add_special_tokens=False,
                 )
                 assert len(inputs["input_ids"]) <= self.max_length
-                final_input["input_ids"].append(inputs["input_ids"])
-                final_input["attention_mask"].append(inputs["attention_mask"])
+            for key in inputs:
+                final_input[key].append(inputs[key])
         self.tokenizer.truncation_side = "right"
+
         return final_input
+
+    def get_labels(self, batch_data: Dict[str, List[str]]) -> List[int]:
+        labels = [
+            0 if a_win else 1 if b_win else 2
+            for a_win, b_win in zip(
+                batch_data["winner_model_a"], batch_data["winner_model_b"]
+            )
+        ]
+        return labels

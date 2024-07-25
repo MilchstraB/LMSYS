@@ -17,9 +17,10 @@ from transformers import (
     TrainingArguments,
 )
 
-from utils import CustomTokenizer
+from text_process import TextProcessorV2
 
 os.environ["WANDB_PROJECT"] = "LMSYS_Text_ClS"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 @dataclass
@@ -42,6 +43,8 @@ class ModelArguments:
     add_eos_token: bool = field(default=False)
     show_length: bool = field(default=False)
     use_chat_template: bool = field(default=True)
+    truncation_method: str = field(default="left")
+    length_assign_method: str = field(default="method_2")
 
 
 @dataclass
@@ -67,7 +70,7 @@ class TrainingArguments(transformers.TrainingArguments):
     lora_dropout: float = field(default=0.05)
     lora_bias: str = "none"
     lora_target: str = field(default="all-linear")
-    # layers_to_transform: Optional[Union[List[int], int]] = field(default=None)
+    layers_to_transform: int = field(default=None)
     use_dora: bool = field(default=False)
 
     gradient_checkpointing: bool = field(default=True)
@@ -104,6 +107,10 @@ def train():
     training_args.output_dir = os.path.join(
         training_args.output_dir, training_args.run_name
     )
+    try:
+        training_args.lora_target = eval(training_args.lora_target)
+    except:
+        training_args.lora_target = training_args.lora_target
     # prepare tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.model_name_or_path,
@@ -128,7 +135,9 @@ def train():
             target_modules=training_args.lora_target,
             lora_dropout=training_args.lora_dropout,
             bias=training_args.lora_bias,
-            # layers_to_transform=training_args.layers_to_transform,
+            layers_to_transform=[
+                i for i in range(42) if i >= int(training_args.layers_to_transform)
+            ],
             task_type=TaskType.SEQ_CLS,
             use_dora=training_args.use_dora,
         )
@@ -143,33 +152,34 @@ def train():
         train_dataset = train_dataset.select(range(5))
         val_dataset = val_dataset.select(range(5))
         test_dataset = test_dataset.select(range(20))
-    preprocess = CustomTokenizer(
-        tokenizer,
+
+    preprocess = TextProcessorV2(
+        tokenizer=tokenizer,
         max_length=model_args.model_max_length,
-        prompt_template=model_args.prompt_template,
-        a_template=model_args.a_template,
-        b_template=model_args.b_template,
-        instruction=model_args.instruction,
-        show_length=model_args.show_length,
-        use_chat_template=model_args.use_chat_template,
+        # use_chat_template=model_args.use_chat_template,
+        truncation_method=model_args.truncation_method,
+        length_assign_method=model_args.length_assign_method,
     )
     train_dataset = train_dataset.map(
         preprocess,
         batched=True,
         remove_columns=train_dataset.column_names,
         load_from_cache_file=False,
+        num_proc=8,
     )
     val_dataset = val_dataset.map(
         preprocess,
         batched=True,
         remove_columns=val_dataset.column_names,
         load_from_cache_file=False,
+        num_proc=8,
     )
     test_dataset = test_dataset.map(
         preprocess,
         batched=True,
         remove_columns=test_dataset.column_names,
         load_from_cache_file=False,
+        num_proc=8,
     )
 
     if training_args.filter_long_text:

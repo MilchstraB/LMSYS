@@ -150,7 +150,7 @@ class TextProcessorV2:
         )
         final_input = defaultdict(list)
         if self.get_labels:
-            final_input["labels"] = self.get_labels(batch_data)
+            final_input["labels"] = self.extract_labels(batch_data)
         prompt_token_num = np.array([self.compute_token_num(p) for p in batch_prompt])
         response_a_token_num = np.array(
             [self.compute_token_num(r) for r in batch_response_a]
@@ -272,7 +272,7 @@ class TextProcessorV2:
 
         return final_input
 
-    def get_labels(self, batch_data: Dict[str, List[str]]) -> List[int]:
+    def extract_labels(self, batch_data: Dict[str, List[str]]) -> List[int]:
         labels = [
             0 if a_win else 1 if b_win else 2
             for a_win, b_win in zip(

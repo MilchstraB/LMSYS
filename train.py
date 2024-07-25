@@ -15,6 +15,7 @@ from transformers import (
     EvalPrediction,
     Trainer,
     TrainingArguments,
+    BitsAndBytesConfig,
 )
 
 from text_process import TextProcessorV2
@@ -34,13 +35,6 @@ class ModelArguments:
             "help": "Maximum sequence length. Sequences will be right padded (and possibly truncated)."
         },
     )
-    instruction: str = field(
-        default="Now I will give you a prompt and two responses. You should choose the better response. If the responses are relatively the same, respond with 'tie'. Otherwise respond with 'A' or 'B' to indicate which is better.\n"
-    )
-    prompt_template: str = field(default="Prompt: <\P>")
-    a_template: str = field(default="Response of A: <\A>")
-    b_template: str = field(default="Response of B: <\B>")
-    add_eos_token: bool = field(default=False)
     show_length: bool = field(default=False)
     use_chat_template: bool = field(default=True)
     truncation_method: str = field(default="left")
@@ -62,13 +56,13 @@ class DataArguments:
 
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
-    filter_long_text: bool = field(default=False)
+    filter_long_text: str = field(default=None)
 
     lora_enable: bool = field(default=True)
     lora_r: int = field(default=16)
     lora_alpha: int = field(default=32)
     lora_dropout: float = field(default=0.05)
-    lora_bias: str = "none"
+    lora_bias: str = field(default="none")
     lora_target: str = field(default="all-linear")
     layers_to_transform: int = field(default=None)
     use_dora: bool = field(default=False)
@@ -88,6 +82,20 @@ class TrainingArguments(transformers.TrainingArguments):
     report_to: str = field(default="wandb")
 
     torch_compile: bool = field(default=True)
+    double_quant: bool = field(
+        default=True,
+        metadata={
+            "help": "Compress the quantization statistics through double quantization."
+        },
+    )
+    quant_type: str = field(
+        default="nf4",
+        metadata={
+            "help": "Quantization data type to use. Should be one of `fp4` or `nf4`."
+        },
+    )
+    bits: int = field(default=16, metadata={"help": "How many bits to use. [4, 8, 16]"})
+    device: str = field(default="cuda")
 
 
 def compute_metrics(eval_preds: EvalPrediction) -> dict:
@@ -97,6 +105,28 @@ def compute_metrics(eval_preds: EvalPrediction) -> dict:
     loss = log_loss(y_true=labels, y_pred=probs)
     acc = accuracy_score(y_true=labels, y_pred=preds.argmax(-1))
     return {"acc": acc, "log_loss": loss}
+
+
+def filter_length_ds(
+    ds: Dataset,
+    max_length,
+    filter_method: str = "pab",
+):
+
+    if filter_method == "pab":
+        return ds.filter(
+            lambda x: x["original_prompt_length"]
+            + x["original_response_a_length"]
+            + x["original_response_b_length"]
+            < max_length
+        )
+    elif filter_method == "pa":
+        return ds.filter(
+            lambda x: x["original_prompt_length"] + x["original_response_a_length"]
+            < max_length
+        )
+    else:
+        raise ValueError(f"{filter_method} error!")
 
 
 def train():
@@ -111,20 +141,53 @@ def train():
         training_args.lora_target = eval(training_args.lora_target)
     except:
         training_args.lora_target = training_args.lora_target
+    compute_dtype = (
+        torch.float16
+        if training_args.fp16
+        else (torch.bfloat16 if training_args.bf16 else torch.float32)
+    )
+    bnb_model_from_pretrained_args = {}
+    if training_args.bits in [4, 8]:
+        bnb_model_from_pretrained_args.update(
+            dict(
+                device_map={"": training_args.device},
+                load_in_4bit=training_args.bits == 4,
+                load_in_8bit=training_args.bits == 8,
+                quantization_config=BitsAndBytesConfig(
+                    load_in_4bit=training_args.bits == 4,
+                    load_in_8bit=training_args.bits == 8,
+                    bnb_4bit_compute_dtype=compute_dtype,
+                    bnb_4bit_use_double_quant=training_args.double_quant,
+                    bnb_4bit_quant_type=training_args.quant_type,  # {'fp4', 'nf4'}
+                ),
+            )
+        )
     # prepare tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.model_name_or_path,
         padding_side="right",
         use_fast=True,
-        add_eos_token=model_args.add_eos_token,
     )
     model = AutoModelForSequenceClassification.from_pretrained(
         model_args.model_name_or_path,
         num_labels=3,
         low_cpu_mem_usage=True,
         device_map="cuda",
-        torch_dtype=torch.bfloat16,
+        torch_dtype=compute_dtype,
+        **bnb_model_from_pretrained_args,
     )
+    if training_args.bits in [4, 8]:
+        from peft import prepare_model_for_kbit_training
+
+        model.config.torch_dtype = (
+            torch.float32
+            if training_args.fp16
+            else (torch.bfloat16 if training_args.bf16 else torch.float32)
+        )
+        model = prepare_model_for_kbit_training(
+            model, use_gradient_checkpointing=training_args.gradient_checkpointing
+        )
+
     model.enable_input_require_grads()
     model.config.use_cache = False
 
@@ -145,6 +208,15 @@ def train():
 
     # prepare data
     train_dataset = Dataset.from_csv(data_args.train_data_path)
+    if training_args.filter_long_text:
+        train_dataset = filter_length_ds(
+            train_dataset,
+            model_args.model_max_length,
+            filter_method=training_args.filter_long_text,
+        )
+        print(
+            f"Filter max length: {model_args.model_max_length}, total training data: {len(train_dataset)}"
+        )
     val_dataset = Dataset.from_csv(data_args.val_data_path)
     test_dataset = Dataset.from_csv(data_args.test_data_path)
 
@@ -156,9 +228,9 @@ def train():
     preprocess = TextProcessorV2(
         tokenizer=tokenizer,
         max_length=model_args.model_max_length,
-        # use_chat_template=model_args.use_chat_template,
         truncation_method=model_args.truncation_method,
         length_assign_method=model_args.length_assign_method,
+        chat_template=model_args.chat_template,
     )
     train_dataset = train_dataset.map(
         preprocess,

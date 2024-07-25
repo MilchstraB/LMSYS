@@ -9,13 +9,41 @@ def parse_text(text: str) -> list:
     return eval(text, {"null": ""})
 
 
-default_chat_template = """<bos><start_of_turn>user
+templates_dict = {
+    "chat_template_with_token_num": """<bos><start_of_turn>user
 {prompt}\n
 <response_a> ({a_word_num} words): {response_a}\n
 <response_b> ({b_word_num} words): {response_b}
 <end_of_turn>
 <start_of_turn>model
-"""
+""",
+    "chat_template": """<bos><start_of_turn>user
+{prompt}\n
+<response_a>: {response_a}\n
+<response_b>: {response_b}
+<end_of_turn>
+<start_of_turn>model
+""",
+    "template": """{prompt}\n
+<response_a>: {response_a}\n
+<response_b>: {response_b}
+<eos>
+""",
+    "template_with_token_num": """{prompt}\n
+<response_a> ({a_word_num} words): {response_a}\n
+<response_b> ({b_word_num} words): {response_b}
+""",
+    "template_with_token_num_eos": """{prompt}\n
+<response_a> ({a_word_num} words): {response_a}\n
+<response_b> ({b_word_num} words): {response_b}
+<eos>
+""",
+    "template_with_eos": """{prompt}\n
+<response_a>: {response_a}\n
+<response_b>: {response_b}
+<eos>
+""",
+}
 
 
 class TextProcessorV2:
@@ -25,14 +53,28 @@ class TextProcessorV2:
         length_assign_method: str,
         tokenizer: AutoTokenizer,
         max_length: int,
-        chat_template: Optional[str] = default_chat_template,
+        chat_template: Optional[str] = None,
         get_labels: Optional[bool] = True,
     ):
+        """
+        Initializes the TextProcessor object.
+
+        Args:
+            truncation_method (str): The method used for truncating text.
+            length_assign_method (str): The method used for assigning length to text.
+            tokenizer (AutoTokenizer): The tokenizer object used for tokenization.
+            max_length (int): The maximum length of the processed text.
+            chat_template (Optional[str], optional): The chat template to be used. Defaults to None.
+            get_labels (Optional[bool], optional): Whether to retrieve labels. Defaults to True. [For Inference, set to False.]
+        """
+        self.chat_template = templates_dict["chat_template_with_token_num"]
+        if chat_template is not None:
+            self.chat_template = templates_dict[chat_template]
+
         self.truncation_method = truncation_method
         self.length_assign_method = length_assign_method
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.chat_template = chat_template
         self.get_labels = get_labels
 
     def preprocess_batch(
@@ -158,6 +200,15 @@ class TextProcessorV2:
         response_b_token_num = np.array(
             [self.compute_token_num(r) for r in batch_response_b]
         )
+        p_len, a_len, b_len = [], [], []
+        for i in range(len(batch_prompt)):
+            p_len.append(prompt_token_num[i])
+            a_len.append(response_a_token_num[i])
+            b_len.append(response_b_token_num[i])
+
+        final_input["original_prompt_length"] = p_len
+        final_input["original_response_a_length"] = a_len
+        final_input["original_response_b_length"] = b_len
         if self.length_assign_method == "method_4":
             texts = self.format_texts(
                 batch_prompt,
@@ -203,7 +254,9 @@ class TextProcessorV2:
             - response_b_token_num
         )
         max_token_capacity = self.max_length - other_part_token_num - 10
+        token_length = []
         for i, token_num in enumerate(concat_batch_text_token_num):
+
             if token_num > self.max_length:
                 prompt_capacity, response_a_capacity, response_b_capacity = (
                     self.get_part_capacity(
@@ -258,6 +311,7 @@ class TextProcessorV2:
                     add_special_tokens=False,
                 )
                 assert len(inputs["input_ids"]) <= self.max_length
+                token_length.append(len(inputs["input_ids"]))
             else:
                 inputs = self.tokenizer(
                     concat_batch_text[i],
@@ -266,8 +320,10 @@ class TextProcessorV2:
                     add_special_tokens=False,
                 )
                 assert len(inputs["input_ids"]) <= self.max_length
+                token_length.append(len(inputs["input_ids"]))
             for key in inputs:
                 final_input[key].append(inputs[key])
+        final_input["token_length"] = token_length
         self.tokenizer.truncation_side = "right"
 
         return final_input

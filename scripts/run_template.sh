@@ -1,6 +1,6 @@
 
 deepspeed train.py \
-    --model_name_or_path /Path/to/Model \
+    --model_name_or_path google/gemma-2-9b-it \
     --model_max_length 2048 \
     --instruction "" \
     --prompt_template "<prompt>: <\P>" \
@@ -22,7 +22,7 @@ deepspeed train.py \
     --eval_steps 0.2 \
     --eval_strategy "steps" \
     --bf16_full_eval True \
-    --output_dir "gemma_beseline_debug" \
+    --output_dir "a100_gemma" \
     --group_by_length False \
     --debug_fast_test False \
     --label_smoothing_factor 0.0 \
@@ -34,7 +34,7 @@ deepspeed train.py \
     --per_device_train_batch_size 4 \
     --per_device_eval_batch_size 4 \
     --gradient_accumulation_steps 2 \
-    --save_strategy "epoch" \
+    --save_strategy "no" \
     --learning_rate 1e-4 \
     --lr_scheduler_type "cosine" \
     --show_length False

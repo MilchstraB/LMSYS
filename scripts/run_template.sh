@@ -1,16 +1,6 @@
-
 deepspeed train.py \
     --model_name_or_path google/gemma-2-9b-it \
     --model_max_length 2048 \
-    --instruction "" \
-    --prompt_template "<prompt>: <\P>" \
-    --a_template "\n<response_a>: <\A>" \
-    --b_template "\n<response_b>: <\B>" \
-    --add_eos_token False \
-    --train_data_path data/split/train.csv \
-    --val_data_path data/split/val.csv \
-    --test_data_path data/split/test.csv \
-    --output_dir ./output/gemma2_baseline \
     --deepspeed ./scripts/zero2.json \
     --lora_enable True \
     --lora_r 16 \
@@ -18,7 +8,7 @@ deepspeed train.py \
     --lora_dropout 0.05 \
     --use_dora False \
     --gradient_checkpointing True \
-    --lora_target "all-linear" \
+    --lora_target "[\"q_proj\", \"k_proj\", \"v_proj\", \"o_proj\", \"gate_proj\"]" \
     --eval_steps 0.2 \
     --eval_strategy "steps" \
     --bf16_full_eval True \
@@ -37,4 +27,10 @@ deepspeed train.py \
     --save_strategy "no" \
     --learning_rate 1e-4 \
     --lr_scheduler_type "cosine" \
-    --show_length False
+    --dataloader_num_workers 4 \
+    --save_total_limit 1 \
+    --save_steps 0.2 \
+    --layers_to_transform 16 \
+    --truncation_method right \
+    --length_assign_method method_4 \
+    --chat_template "template_with_eos"

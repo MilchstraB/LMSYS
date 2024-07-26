@@ -44,13 +44,13 @@ class ModelArguments:
 @dataclass
 class DataArguments:
     train_data_path: str = field(
-        default="data/split/train.csv", metadata={"help": "Path to the training data."}
+        default="data/split/train.csv.gz", metadata={"help": "Path to the training data."}
     )
     val_data_path: str = field(
-        default="data/split/val.csv", metadata={"help": "Path to the validation data."}
+        default="data/split/val.csv.gz", metadata={"help": "Path to the validation data."}
     )
     test_data_path: str = field(
-        default="data/split/test.csv", metadata={"help": "Path to the test data."}
+        default="data/split/test.csv.gz", metadata={"help": "Path to the test data."}
     )
 
 

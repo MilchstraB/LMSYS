@@ -272,6 +272,18 @@ def train():
     )
 
     trainer.train()
+
+    hyper_parameter = {
+        "truncation_method": model_args.truncation_method,
+        "length_assign_method": model_args.length_assign_method,
+        "chat_template": preprocess.chat_template,
+        "model_max_length": model_args.model_max_length,
+    }
+    save_path = os.path.join(
+        training_args.output_dir, training_args.run_name, "hyper_parameter.json"
+    )
+    with open(save_path, "w") as f:
+        json.dump(hyper_parameter, f)
     val_result = trainer.evaluate(val_dataset, metric_key_prefix="val")
 
     test_result = trainer.evaluate(test_dataset, metric_key_prefix="test")

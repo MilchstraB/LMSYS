@@ -65,8 +65,13 @@ class TextProcessorV2:
             get_labels (Optional[bool], optional): Whether to retrieve labels. Defaults to True. [For Inference, set to False.]
         """
         self.chat_template = templates_dict["chat_template_with_token_num"]
-        if chat_template is not None:
+        if chat_template is not None and chat_template in templates_dict:
             self.chat_template = templates_dict[chat_template]
+        elif isinstance(chat_template, str):
+            self.chat_template = chat_template
+            print(f"[WEARING]: The chat_template set as: {self.chat_template}")
+        else:
+            raise ValueError("Chat template not supported")
 
         self.truncation_method = truncation_method
         self.length_assign_method = length_assign_method

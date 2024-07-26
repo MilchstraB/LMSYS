@@ -4,3 +4,4 @@ scikit-learn
 deepspeed
 peft
 wandb
+bitsandbytes

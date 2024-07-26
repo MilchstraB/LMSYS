@@ -40,6 +40,10 @@ templates_dict = {
 <response_a>: {response_a}\n
 <response_b>: {response_b}
 <eos>""",
+    "non_sp_token_template": """<prompt>: {prompt}\n
+<response_a>: {response_a}\n
+<response_b>: {response_b}
+""",
 }
 
 
@@ -226,7 +230,7 @@ class TextProcessorV2:
                 texts,
                 max_length=self.max_length,
                 truncation=True,
-                add_special_tokens=False,
+                add_special_tokens=True,
             )
             for key in tokenized_truncation:
                 final_input[key] = tokenized_truncation[key]

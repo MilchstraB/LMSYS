@@ -27,7 +27,6 @@ templates_dict = {
     "template": """{prompt}\n
 <response_a>: {response_a}\n
 <response_b>: {response_b}
-<eos>
 """,
     "template_with_token_num": """{prompt}\n
 <response_a> ({a_word_num} words): {response_a}\n
@@ -36,13 +35,11 @@ templates_dict = {
     "template_with_token_num_eos": """{prompt}\n
 <response_a> ({a_word_num} words): {response_a}\n
 <response_b> ({b_word_num} words): {response_b}
-<eos>
-""",
+<eos>""",
     "template_with_eos": """{prompt}\n
 <response_a>: {response_a}\n
 <response_b>: {response_b}
-<eos>
-""",
+<eos>""",
 }
 
 

@@ -230,7 +230,7 @@ class TextProcessorV2:
                 add_special_tokens=False,
             )
             token_length = [len(t) for t in tokenized["input_ids"]]
-
+            self.tokenizer.add_eos_token = True
             tokenized_truncation = self.tokenizer(
                 texts,
                 max_length=self.max_length,

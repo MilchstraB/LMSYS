@@ -36,7 +36,7 @@ class ModelArguments:
         },
     )
     show_length: bool = field(default=False)
-    use_chat_template: bool = field(default=True)
+    chat_template: str = field(default="template")
     truncation_method: str = field(default="left")
     length_assign_method: str = field(default="method_2")
 
@@ -95,7 +95,7 @@ class TrainingArguments(transformers.TrainingArguments):
         },
     )
     bits: int = field(default=16, metadata={"help": "How many bits to use. [4, 8, 16]"})
-    device: str = field(default="cuda")
+    device_map: str = field(default="cuda")
 
 
 def compute_metrics(eval_preds: EvalPrediction) -> dict:
@@ -142,7 +142,7 @@ def train():
     except:
         training_args.lora_target = training_args.lora_target
     compute_dtype = (
-        torch.float16
+        torch.bfloat16
         if training_args.fp16
         else (torch.bfloat16 if training_args.bf16 else torch.float32)
     )
@@ -150,7 +150,7 @@ def train():
     if training_args.bits in [4, 8]:
         bnb_model_from_pretrained_args.update(
             dict(
-                device_map={"": training_args.device},
+                device_map={"": training_args.device_map},
                 load_in_4bit=training_args.bits == 4,
                 load_in_8bit=training_args.bits == 8,
                 quantization_config=BitsAndBytesConfig(

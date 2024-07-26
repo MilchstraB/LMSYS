@@ -35,7 +35,6 @@ class ModelArguments:
             "help": "Maximum sequence length. Sequences will be right padded (and possibly truncated)."
         },
     )
-    show_length: bool = field(default=False)
     chat_template: str = field(default="template")
     truncation_method: str = field(default="left")
     length_assign_method: str = field(default="method_2")
@@ -142,10 +141,31 @@ def train():
     except:
         training_args.lora_target = training_args.lora_target
     compute_dtype = (
-        torch.bfloat16
+        torch.float16
         if training_args.fp16
         else (torch.bfloat16 if training_args.bf16 else torch.float32)
     )
+    # Save EOS Token For result check
+    if model_args.length_assign_method == "method_4":
+        add_eos_token = True
+    elif "<eos>" in preprocess.chat_template:
+        add_eos_token = True
+    else:
+        add_eos_token = False
+    hyper_parameter = {
+        "truncation_method": model_args.truncation_method,
+        "length_assign_method": model_args.length_assign_method,
+        "chat_template": preprocess.chat_template,
+        "model_max_length": model_args.model_max_length,
+        "add_eos_token": add_eos_token,
+    }
+    trainer.log({"hyper_parameter": hyper_parameter})
+    save_path = os.path.join(
+        training_args.output_dir, training_args.run_name, "hyper_parameter.json"
+    )
+    with open(save_path, "w") as f:
+        json.dump(hyper_parameter, f)
+
     bnb_model_from_pretrained_args = {}
     if training_args.bits in [4, 8]:
         bnb_model_from_pretrained_args.update(
@@ -254,13 +274,6 @@ def train():
         num_proc=8,
     )
 
-    if training_args.filter_long_text:
-        train_dataset = train_dataset.filter(
-            lambda x: x["token_length"] <= model_args.model_max_length
-        )
-        print(
-            f"Filter max length: {model_args.model_max_length}, total training data: {len(train_dataset)}"
-        )
     trainer = Trainer(
         args=training_args,
         model=model,
@@ -273,17 +286,6 @@ def train():
 
     trainer.train()
 
-    hyper_parameter = {
-        "truncation_method": model_args.truncation_method,
-        "length_assign_method": model_args.length_assign_method,
-        "chat_template": preprocess.chat_template,
-        "model_max_length": model_args.model_max_length,
-    }
-    save_path = os.path.join(
-        training_args.output_dir, training_args.run_name, "hyper_parameter.json"
-    )
-    with open(save_path, "w") as f:
-        json.dump(hyper_parameter, f)
     val_result = trainer.evaluate(val_dataset, metric_key_prefix="val")
 
     test_result = trainer.evaluate(test_dataset, metric_key_prefix="test")

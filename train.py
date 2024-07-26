@@ -64,7 +64,7 @@ class TrainingArguments(transformers.TrainingArguments):
     lora_dropout: float = field(default=0.05)
     lora_bias: str = field(default="none")
     lora_target: str = field(default="all-linear")
-    layers_to_transform: int = field(default=None)
+    layers_to_transform: int = field(default=0)
     use_dora: bool = field(default=False)
 
     gradient_checkpointing: bool = field(default=True)

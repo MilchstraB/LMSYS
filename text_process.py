@@ -11,32 +11,32 @@ def parse_text(text: str) -> list:
 
 templates_dict = {
     "chat_template_with_token_num": """<bos><start_of_turn>user
-{prompt}\n
+<prompt>: {prompt}\n
 <response_a> ({a_word_num} words): {response_a}\n
 <response_b> ({b_word_num} words): {response_b}
 <end_of_turn>
 <start_of_turn>model
 """,
     "chat_template": """<bos><start_of_turn>user
-{prompt}\n
+<prompt>: {prompt}\n
 <response_a>: {response_a}\n
 <response_b>: {response_b}
 <end_of_turn>
 <start_of_turn>model
 """,
-    "template": """{prompt}\n
+    "template": """<bos><prompt>: {prompt}\n
 <response_a>: {response_a}\n
 <response_b>: {response_b}
 """,
-    "template_with_token_num": """{prompt}\n
+    "template_with_token_num": """<bos><prompt>: {prompt}\n
 <response_a> ({a_word_num} words): {response_a}\n
 <response_b> ({b_word_num} words): {response_b}
 """,
-    "template_with_token_num_eos": """{prompt}\n
+    "template_with_token_num_eos": """<bos><prompt>: {prompt}\n
 <response_a> ({a_word_num} words): {response_a}\n
 <response_b> ({b_word_num} words): {response_b}
 <eos>""",
-    "template_with_eos": """{prompt}\n
+    "template_with_eos": """<bos><prompt>: {prompt}\n
 <response_a>: {response_a}\n
 <response_b>: {response_b}
 <eos>""",

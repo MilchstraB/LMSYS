@@ -22,7 +22,7 @@ from text_process import TextProcessorV2
 
 os.environ["WANDB_PROJECT"] = "LMSYS_Text_ClS"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
+os.environ["HF_TOKEN"] = "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"
 
 @dataclass
 class ModelArguments:

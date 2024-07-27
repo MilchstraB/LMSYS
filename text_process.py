@@ -227,7 +227,7 @@ class TextProcessorV2:
                 texts,
                 max_length=self.max_length,
                 truncation=False,
-                add_special_tokens=False,
+                add_special_tokens=True,
             )
             token_length = [len(t) for t in tokenized["input_ids"]]
             self.tokenizer.add_eos_token = True

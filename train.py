@@ -145,26 +145,6 @@ def train():
         if training_args.fp16
         else (torch.bfloat16 if training_args.bf16 else torch.float32)
     )
-    # Save EOS Token For result check
-    if model_args.length_assign_method == "method_4":
-        add_eos_token = True
-    elif "<eos>" in preprocess.chat_template:
-        add_eos_token = True
-    else:
-        add_eos_token = False
-    hyper_parameter = {
-        "truncation_method": model_args.truncation_method,
-        "length_assign_method": model_args.length_assign_method,
-        "chat_template": preprocess.chat_template,
-        "model_max_length": model_args.model_max_length,
-        "add_eos_token": add_eos_token,
-    }
-    trainer.log({"hyper_parameter": hyper_parameter})
-    save_path = os.path.join(
-        training_args.output_dir, training_args.run_name, "hyper_parameter.json"
-    )
-    with open(save_path, "w") as f:
-        json.dump(hyper_parameter, f)
 
     bnb_model_from_pretrained_args = {}
     if training_args.bits in [4, 8]:
@@ -252,6 +232,25 @@ def train():
         length_assign_method=model_args.length_assign_method,
         chat_template=model_args.chat_template,
     )
+
+    # Save EOS Token For result check
+    if model_args.length_assign_method == "method_4":
+        add_eos_token = True
+    elif "<eos>" in preprocess.chat_template:
+        add_eos_token = True
+    else:
+        add_eos_token = False
+    hyper_parameter = {
+        "truncation_method": model_args.truncation_method,
+        "length_assign_method": model_args.length_assign_method,
+        "chat_template": preprocess.chat_template,
+        "model_max_length": model_args.model_max_length,
+        "add_eos_token": add_eos_token,
+    }
+
+    save_path = os.path.join(training_args.output_dir, "hyper_parameter.json")
+    with open(save_path, "w") as f:
+        json.dump(hyper_parameter, f)
     train_dataset = train_dataset.map(
         preprocess,
         batched=True,
@@ -283,7 +282,7 @@ def train():
         compute_metrics=compute_metrics,
         data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
     )
-
+    trainer.log({"text_process_parameter": hyper_parameter})
     trainer.train()
 
     val_result = trainer.evaluate(val_dataset, metric_key_prefix="val")

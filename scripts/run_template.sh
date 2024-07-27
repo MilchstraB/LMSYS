@@ -61,7 +61,7 @@ deepspeed train.py \
     --lora_r 16 \
     --lora_alpha 32 \
     --lora_target "[\"q_proj\", \"k_proj\", \"v_proj\", \"o_proj\", \"gate_proj\"]" \
-    --output_dir "a100_gemma_template_with_token_num_eos_best_para" \
+    --output_dir "a100_gemma-2-9b-it-SimPO" \
     --report_to "wandb" \
     --bf16 True \
     --num_train_epochs 1 \

@@ -60,6 +60,7 @@ class DataArguments:
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
     filter_long_text: bool = field(default=False)
+    switch: bool = field(default=False)
 
     lora_enable: bool = field(default=True)
     lora_r: int = field(default=16)
@@ -67,7 +68,7 @@ class TrainingArguments(transformers.TrainingArguments):
     lora_dropout: float = field(default=0.05)
     lora_bias: str = "none"
     lora_target: str = field(default="all-linear")
-    # layers_to_transform: Optional[Union[List[int], int]] = field(default=None)
+    freeze_layers: Optional[int] = field(default=None)
     use_dora: bool = field(default=False)
 
     gradient_checkpointing: bool = field(default=True)
@@ -104,6 +105,13 @@ def train():
     training_args.output_dir = os.path.join(
         training_args.output_dir, training_args.run_name
     )
+    try:
+        training_args.lora_target = eval(training_args.lora_target)
+    except:
+        training_args.lora_target = training_args.lora_target
+
+    training_args.gradient_checkpointing_kwargs = {"use_reentrant": True}
+
     # prepare tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.model_name_or_path,
@@ -114,12 +122,16 @@ def train():
     model = AutoModelForSequenceClassification.from_pretrained(
         model_args.model_name_or_path,
         num_labels=3,
-        low_cpu_mem_usage=True,
-        device_map="cuda",
+        # low_cpu_mem_usage=True,
+        # device_map="cuda",
         torch_dtype=torch.bfloat16,
     )
     model.enable_input_require_grads()
     model.config.use_cache = False
+
+    if "llama" in model_args.model_name_or_path.lower():
+        tokenizer.pad_token = tokenizer.eos_token
+        model.config.pad_token_id = tokenizer.pad_token_id
 
     if training_args.lora_enable:
         lora_config = LoraConfig(
@@ -128,7 +140,9 @@ def train():
             target_modules=training_args.lora_target,
             lora_dropout=training_args.lora_dropout,
             bias=training_args.lora_bias,
-            # layers_to_transform=training_args.layers_to_transform,
+            layers_to_transform=[
+                i for i in range(42) if i >= training_args.freeze_layers
+            ] if training_args.freeze_layers else None,
             task_type=TaskType.SEQ_CLS,
             use_dora=training_args.use_dora,
         )
@@ -152,6 +166,7 @@ def train():
         instruction=model_args.instruction,
         show_length=model_args.show_length,
         use_chat_template=model_args.use_chat_template,
+        switch=training_args.switch,
     )
     train_dataset = train_dataset.map(
         preprocess,

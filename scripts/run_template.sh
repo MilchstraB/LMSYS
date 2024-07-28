@@ -8,7 +8,7 @@ deepspeed train.py \
     --lora_r 16 \
     --lora_alpha 32 \
     --lora_target "[\"q_proj\", \"k_proj\", \"v_proj\", \"o_proj\", \"gate_proj\"]" \
-    --output_dir "a100_gemma_template_with_token_num_eos_best_para" \
+    --output_dir "a100_gemma_template_with_token_num_eos_best_para_smooth0.1" \
     --report_to "wandb" \
     --bf16 True \
     --num_train_epochs 1 \
@@ -25,17 +25,20 @@ deepspeed train.py \
     --warmup_steps 20 \
     --truncation_method right \
     --length_assign_method method_2 \
-    --chat_template "template_with_token_num_eos"
+    --chat_template "template_with_token_num_eos" \
+    --label_smoothing_factor 0.1 \
+
+
 
 deepspeed train.py \
-    --model_name_or_path princeton-nlp/gemma-2-9b-it-SimPO \
+    --model_name_or_path google/gemma-2-9b-it \
     --model_max_length 2048 \
     --deepspeed ./scripts/zero2.json \
     --lora_enable True \
     --lora_r 16 \
     --lora_alpha 32 \
     --lora_target "[\"q_proj\", \"k_proj\", \"v_proj\", \"o_proj\", \"gate_proj\"]" \
-    --output_dir "a100_gemma-2-9b-it-SimPO" \
+    --output_dir "a100_gemma_template_with_token_num_eos_best_para_smooth0.2" \
     --report_to "wandb" \
     --bf16 True \
     --num_train_epochs 1 \
@@ -52,14 +55,18 @@ deepspeed train.py \
     --warmup_steps 20 \
     --truncation_method right \
     --length_assign_method method_2 \
-    --chat_template "template_with_token_num_eos"
+    --chat_template "template_with_token_num_eos" \
+    --label_smoothing_factor 0.2 \
 
 deepspeed train.py \
     --model_name_or_path google/gemma-2-9b-it \
     --model_max_length 2048 \
-    --deepspeed ./scripts/zero3.json \
-    --lora_enable False \
-    --output_dir "a100_gemma_template_with_token_num_eos_FT_2e-5" \
+    --deepspeed ./scripts/zero2.json \
+    --lora_enable True \
+    --lora_r 16 \
+    --lora_alpha 32 \
+    --lora_target "[\"q_proj\", \"k_proj\", \"v_proj\", \"o_proj\", \"gate_proj\"]" \
+    --output_dir "a100_gemma_template_with_token_num_eos_best_para_smooth0.15" \
     --report_to "wandb" \
     --bf16 True \
     --num_train_epochs 1 \
@@ -72,18 +79,22 @@ deepspeed train.py \
     --save_total_limit 1 \
     --save_steps 0.2 \
     --layers_to_transform 0 \
-    --learning_rate 2e-5 \
+    --learning_rate 2e-4 \
     --warmup_steps 20 \
     --truncation_method right \
     --length_assign_method method_2 \
-    --chat_template "template_with_token_num_eos"
+    --chat_template "template_with_token_num_eos" \
+    --label_smoothing_factor 0.15 \
 
 deepspeed train.py \
     --model_name_or_path google/gemma-2-9b-it \
     --model_max_length 2048 \
-    --deepspeed ./scripts/zero3.json \
-    --lora_enable False \
-    --output_dir "a100_gemma_template_with_token_num_eos_FT_8e-5" \
+    --deepspeed ./scripts/zero2.json \
+    --lora_enable True \
+    --lora_r 16 \
+    --lora_alpha 32 \
+    --lora_target "[\"q_proj\", \"k_proj\", \"v_proj\", \"o_proj\", \"gate_proj\"]" \
+    --output_dir "a100_gemma_template_with_token_num_eos_best_para_smooth0.05" \
     --report_to "wandb" \
     --bf16 True \
     --num_train_epochs 1 \
@@ -96,8 +107,9 @@ deepspeed train.py \
     --save_total_limit 1 \
     --save_steps 0.2 \
     --layers_to_transform 0 \
-    --learning_rate 8e-5 \
+    --learning_rate 2e-4 \
     --warmup_steps 20 \
     --truncation_method right \
     --length_assign_method method_2 \
-    --chat_template "template_with_token_num_eos"
+    --chat_template "template_with_token_num_eos" \
+    --label_smoothing_factor 0.05 \

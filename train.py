@@ -247,7 +247,8 @@ def train():
         "model_max_length": model_args.model_max_length,
         "add_eos_token": add_eos_token,
     }
-
+    if not os.path.exists(training_args.output_dir):
+        os.makedirs(training_args.output_dir)
     save_path = os.path.join(training_args.output_dir, "hyper_parameter.json")
     with open(save_path, "w") as f:
         json.dump(hyper_parameter, f)

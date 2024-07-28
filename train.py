@@ -17,7 +17,7 @@ from transformers import (
     TrainingArguments,
     BitsAndBytesConfig,
 )
-
+from trainer import MyTrainer
 from text_process import TextProcessorV2
 
 os.environ["WANDB_PROJECT"] = "LMSYS_Text_ClS"
@@ -171,8 +171,6 @@ def train():
     model = AutoModelForSequenceClassification.from_pretrained(
         model_args.model_name_or_path,
         num_labels=3,
-        low_cpu_mem_usage=True,
-        device_map="cuda",
         torch_dtype=compute_dtype,
         **bnb_model_from_pretrained_args,
     )
@@ -274,7 +272,7 @@ def train():
         num_proc=8,
     )
 
-    trainer = Trainer(
+    trainer = MyTrainer(
         args=training_args,
         model=model,
         tokenizer=tokenizer,

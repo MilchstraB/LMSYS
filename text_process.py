@@ -273,6 +273,7 @@ class TextProcessorV2:
                     )
                 )
                 if self.truncation_method in ["left", "right"]:
+
                     self.tokenizer.truncation_side = self.truncation_method
                     prompt = self.tokenizer(
                         batch_prompt[i],
@@ -300,6 +301,74 @@ class TextProcessorV2:
                     response_b_text = self.tokenizer.decode(
                         response_b["input_ids"]
                     ).strip()
+
+                    text = self.chat_template.format(
+                        prompt=prompt_text,
+                        response_a=response_a_text,
+                        response_b=response_b_text,
+                        a_word_num=response_a_token_num[i],
+                        b_word_num=response_b_token_num[i],
+                    )
+                elif self.truncation_method == "middle":
+                    self.tokenizer.truncation_side = "left"
+                    prompt = self.tokenizer(
+                        batch_prompt[i],
+                        max_length=max(prompt_capacity//2 - 1, 0),
+                        truncation=True,
+                        add_special_tokens=False,
+                    )
+                    response_a = self.tokenizer(
+                        batch_response_a[i],
+                        max_length=max(response_a_capacity//2 - 1, 0),
+                        truncation=True,
+                        add_special_tokens=False,
+                    )
+                    response_b = self.tokenizer(
+                        batch_response_b[i],
+                        max_length=max(response_b_capacity//2 - 1, 0),
+                        truncation=True,
+                        add_special_tokens=False,
+                    )
+                    prompt_text_end = self.tokenizer.decode(prompt["input_ids"]).strip()
+                    response_a_text_end = self.tokenizer.decode(
+                        response_a["input_ids"]
+                    ).strip()
+                    response_b_text_end = self.tokenizer.decode(
+                        response_b["input_ids"]
+                    ).strip()
+
+                    self.tokenizer.truncation_side = "right"
+                    prompt = self.tokenizer(
+                        batch_prompt[i],
+                        max_length=max(prompt_capacity - prompt_capacity//2 - 1, 0),
+                        truncation=True,
+                        add_special_tokens=False,
+                    )
+                    response_a = self.tokenizer(
+                        batch_response_a[i],
+                        max_length=max(response_a_capacity - response_a_capacity//2 - 1, 0),
+                        truncation=True,
+                        add_special_tokens=False,
+                    )
+                    response_b = self.tokenizer(
+                        batch_response_b[i],
+                        max_length=max(response_b_capacity - response_b_capacity//2 - 1, 0),
+                        truncation=True,
+                        add_special_tokens=False,
+                    )
+
+                    prompt_text_start = self.tokenizer.decode(prompt["input_ids"]).strip()
+                    response_a_text_start = self.tokenizer.decode(
+                        response_a["input_ids"]
+                    ).strip()
+                    response_b_text_start = self.tokenizer.decode(
+                        response_b["input_ids"]
+                    ).strip()
+
+                    prompt_text = prompt_text_start + " ... " + prompt_text_end
+                    response_a_text = response_a_text_start + " ... " + response_a_text_end
+                    response_b_text = response_b_text_start + " ... " + response_b_text_end
+
 
                     text = self.chat_template.format(
                         prompt=prompt_text,

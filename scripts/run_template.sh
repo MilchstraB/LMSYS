@@ -5,7 +5,7 @@ deepspeed train.py \
     --model_max_length 2048 \
     --deepspeed ./scripts/zero3.json \
     --lora_enable False \
-    --output_dir "a100_gemma_template_with_token_num_eos_FT_1e-5_warmup0.05" \
+    --output_dir "a100_gemma_template_with_token_num_eos_FT_1e-5_warmup0.05_mlp1e-4" \
     --report_to "wandb" \
     --bf16 True \
     --num_train_epochs 1 \
@@ -29,7 +29,7 @@ deepspeed train.py \
     --model_max_length 2048 \
     --deepspeed ./scripts/zero3.json \
     --lora_enable False \
-    --output_dir "a100_gemma_template_with_token_num_eos_FT_1e-5_warmup0.1" \
+    --output_dir "a100_gemma_template_with_token_num_eos_FT_1e-5_warmup0.1_mlp1e-4" \
     --report_to "wandb" \
     --bf16 True \
     --num_train_epochs 1 \
@@ -53,7 +53,7 @@ deepspeed train.py \
     --model_max_length 2048 \
     --deepspeed ./scripts/zero3.json \
     --lora_enable False \
-    --output_dir "a100_gemma_template_with_token_num_eos_FT_1e-5_warmup0.2" \
+    --output_dir "a100_gemma_template_with_token_num_eos_FT_1e-5_warmup0.02_mlp1e-4" \
     --report_to "wandb" \
     --bf16 True \
     --num_train_epochs 1 \
@@ -67,7 +67,7 @@ deepspeed train.py \
     --save_steps 0.2 \
     --layers_to_transform 0 \
     --learning_rate 1e-5 \
-    --warmup_ratio 0.2 \
+    --warmup_ratio 0.02 \
     --truncation_method right \
     --length_assign_method method_2 \
     --chat_template "template_with_token_num_eos"

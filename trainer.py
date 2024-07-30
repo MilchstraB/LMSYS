@@ -4,6 +4,37 @@ from transformers import (
 from dataclasses import dataclass, field
 from transformers.trainer import *
 import torch.nn.functional as F
+import re
+import torch
+from torch import nn
+from transformers import PreTrainedTokenizerBase
+
+
+def get_optimizer_grouped_parameters(model, base_lr, score_lr):
+    no_decay = ["bias", "layernorm"]
+    optimizer_grouped_parameters = [
+        {
+            "params": [p for n, p in model.named_parameters() if "score" in n and not any(nd in n for nd in no_decay)],
+            "lr": score_lr,
+            "weight_decay": 0.0,
+        },
+        {
+            "params": [p for n, p in model.named_parameters() if "score" in n and any(nd in n for nd in no_decay)],
+            "lr": score_lr,
+            "weight_decay": 0.0,
+        },
+        {
+            "params": [p for n, p in model.named_parameters() if "score" not in n and not any(nd in n for nd in no_decay)],
+            "lr": base_lr,
+            "weight_decay": 0.0,
+        },
+        {
+            "params": [p for n, p in model.named_parameters() if "score" not in n and any(nd in n for nd in no_decay)],
+            "lr": base_lr,
+            "weight_decay": 0.0,
+        },
+    ]
+    return optimizer_grouped_parameters
 
 def _is_peft_model(model):
     if is_peft_available():

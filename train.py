@@ -17,7 +17,9 @@ from transformers import (
     TrainingArguments,
     BitsAndBytesConfig,
 )
-from trainer import MyTrainer
+
+from torch.optim import AdamW
+from trainer import MyTrainer, get_optimizer_grouped_parameters
 from text_process import TextProcessorV2
 
 os.environ["WANDB_PROJECT"] = "LMSYS_Text_ClS"
@@ -27,7 +29,7 @@ os.environ["HF_TOKEN"] = "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"
 @dataclass
 class ModelArguments:
     model_name_or_path: Optional[str] = field(
-        default="/home/share/pyz/model_weight/gemma-2-9b-it"
+        default="google/gemma-2b"
     )
     model_max_length: int = field(
         default=2048,
@@ -56,6 +58,10 @@ class DataArguments:
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
     filter_long_text: str = field(default=None)
+
+
+    llrd_enable: bool = field(default=False)
+    score_lr: float = field(default=1e-4)
 
     lora_enable: bool = field(default=True)
     lora_r: int = field(default=16)
@@ -271,6 +277,13 @@ def train():
         load_from_cache_file=False,
         num_proc=8,
     )
+    if training_args.llrd_enable:
+        optimizer_grouped_parameters = get_optimizer_grouped_parameters(
+            model,
+            base_lr=training_args.learning_rate,
+            score_lr=training_args.score_lr,
+        )
+        optimizer = AdamW(optimizer_grouped_parameters)
 
     trainer = MyTrainer(
         args=training_args,
@@ -280,6 +293,7 @@ def train():
         eval_dataset=val_dataset,
         compute_metrics=compute_metrics,
         data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
+        optimizers=(optimizer, None) if training_args.llrd_enable else None,
     )
     trainer.log({"text_process_parameter": hyper_parameter})
     trainer.train()

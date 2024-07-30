@@ -342,9 +342,16 @@ def train():
         def create_optimizer(self):
             global model
             para_group = [
-                {"params": model.model.parameters(), 'lr': 1e-5},
-                {"params": model.score.parameters(), 'lr': 1e-4},
-
+            {
+            "params": [p for n, p in model.named_parameters() if "score" in n],
+            "lr": self.args.learning_rate,
+            "weight_decay": 0.0,
+            },
+            {
+            "params": [p for n, p in model.named_parameters() if "score" not in n],
+            "lr": self.args.learning_rate * 10,
+            "weight_decay": 0.0,
+            },
             ]
             optimizer = torch.optim.AdamW(para_group)
             return optimizer

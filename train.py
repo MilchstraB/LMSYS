@@ -346,7 +346,7 @@ def train():
                 {"params": model.score.parameters(), 'lr': 1e-4},
 
             ]
-            optimizer = torch.optim.AdamW(para_group, lr = 1e-5)
+            optimizer = torch.optim.AdamW(para_group)
             return optimizer
         def compute_loss(self, model, inputs, return_outputs=False):
             """

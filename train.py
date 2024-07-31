@@ -277,13 +277,6 @@ def train():
         load_from_cache_file=False,
         num_proc=8,
     )
-    if training_args.llrd_enable:
-        optimizer_grouped_parameters = get_optimizer_grouped_parameters(
-            model,
-            base_lr=training_args.learning_rate,
-            score_lr=training_args.score_lr,
-        )
-        optimizer = AdamW(optimizer_grouped_parameters)
 
     trainer = MyTrainer(
         args=training_args,
@@ -292,9 +285,15 @@ def train():
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         compute_metrics=compute_metrics,
-        data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
-        optimizers=(optimizer, None) if training_args.llrd_enable else None,
-    )
+        data_collator=DataCollatorWithPadding(tokenizer=tokenizer)    )
+    if training_args.llrd_enable:
+        optimizer_grouped_parameters = get_optimizer_grouped_parameters(
+            model,
+            base_lr=training_args.learning_rate,
+            score_lr=training_args.score_lr,
+        )
+        optimizer = AdamW(optimizer_grouped_parameters)
+        trainer.optimizer = optimizer
     trainer.log({"text_process_parameter": hyper_parameter})
     trainer.train()
 

@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Union
 import torch
 import transformers
 from datasets import Dataset
-from peft import LoraConfig, TaskType, get_peft_model
+from peft import LoraConfig, TaskType, get_peft_model, PeftModel
 from sklearn.metrics import accuracy_score, log_loss
 from transformers import (
     AutoModelForSequenceClassification,
@@ -17,7 +17,8 @@ from transformers import (
     TrainingArguments,
 )
 
-from utils import CustomTokenizer
+from torch.optim import AdamW
+from utils import CustomTokenizer, print_rank_0, get_optimizer_grouped_parameters
 
 os.environ["WANDB_PROJECT"] = "LMSYS_Text_ClS"
 
@@ -60,7 +61,10 @@ class DataArguments:
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
     filter_long_text: bool = field(default=False)
+    filter_text_length: int = field(default=2048)
     switch: bool = field(default=False)
+    llrd_enable: bool = field(default=False)
+    score_lr: float = field(default=None)
 
     lora_enable: bool = field(default=True)
     lora_r: int = field(default=16)
@@ -86,6 +90,7 @@ class TrainingArguments(transformers.TrainingArguments):
     report_to: str = field(default="wandb")
 
     torch_compile: bool = field(default=True)
+    pretrain_lora: str = field(default=None)
 
 
 def compute_metrics(eval_preds: EvalPrediction) -> dict:
@@ -122,8 +127,6 @@ def train():
     model = AutoModelForSequenceClassification.from_pretrained(
         model_args.model_name_or_path,
         num_labels=3,
-        # low_cpu_mem_usage=True,
-        # device_map="cuda",
         torch_dtype=torch.bfloat16,
     )
     model.enable_input_require_grads()
@@ -146,7 +149,11 @@ def train():
             task_type=TaskType.SEQ_CLS,
             use_dora=training_args.use_dora,
         )
-        model = get_peft_model(model, lora_config)
+        if training_args.pretrain_lora:
+            print_rank_0(f"Loading pretrain lora weight from {training_args.pretrain_lora}...")
+            model = PeftModel.from_pretrained(model, training_args.pretrain_lora, is_trainable=True)
+        else:
+            model = get_peft_model(model, lora_config)
 
     # prepare data
     train_dataset = Dataset.from_csv(data_args.train_data_path)
@@ -188,12 +195,12 @@ def train():
     )
 
     if training_args.filter_long_text:
-        train_dataset = train_dataset.filter(
-            lambda x: x["token_length"] <= model_args.model_max_length
+        train_dataset = train_dataset.filter(lambda x: x["token_length"] <= training_args.filter_text_length)
+        print_rank_0(
+            f"Filter max length: {training_args.filter_text_length}, total training data: {len(train_dataset)}"
         )
-        print(
-            f"Filter max length: {model_args.model_max_length}, total training data: {len(train_dataset)}"
-        )
+
+
     trainer = Trainer(
         args=training_args,
         model=model,
@@ -203,6 +210,18 @@ def train():
         compute_metrics=compute_metrics,
         data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
     )
+
+
+    if training_args.llrd_enable:
+        optimizer_grouped_parameters = get_optimizer_grouped_parameters(
+            model,
+            base_lr=training_args.learning_rate,
+            score_lr=training_args.score_lr,
+            weight_decay=training_args.weight_decay,
+        )
+        optimizer = AdamW(optimizer_grouped_parameters)
+        trainer.optimizer = optimizer
+
 
     trainer.train()
     val_result = trainer.evaluate(val_dataset, metric_key_prefix="val")

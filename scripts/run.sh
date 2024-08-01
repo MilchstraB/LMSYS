@@ -7,19 +7,16 @@ deepspeed train.py \
     --b_template "\n<response_b>: <\B>" \
     --add_eos_token True \
     --use_chat_template False \
-    --train_data_path data/split/train.csv \
     --val_data_path data/split/val.csv \
     --test_data_path data/split/test.csv \
-    --output_dir ./output/gemma2-ft \
-    --run_name gemma2-ft-baseline \
-    --deepspeed ./scripts/zero3.json \
-    --lora_enable False \
+    --deepspeed ./scripts/zero2.json \
+    --lora_enable True \
     --lora_r 16 \
     --lora_alpha 32 \
     --lora_dropout 0.05 \
     --use_dora False \
     --gradient_checkpointing True \
-    --lora_target '["down_proj", "q_proj", "v_proj", "k_proj", "o_proj", "up_proj", "gate_proj"]' \
+    --lora_target '["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]' \
     --eval_steps 0.2 \
     --eval_strategy "steps" \
     --bf16_full_eval True \
@@ -34,7 +31,13 @@ deepspeed train.py \
     --per_device_train_batch_size 2 \
     --per_device_eval_batch_size 4 \
     --gradient_accumulation_steps 2 \
+    --save_only_model True \
     --save_strategy "epoch" \
-    --learning_rate 2e-5 \
+    --learning_rate 1e-4 \
     --lr_scheduler_type "cosine" \
-    --show_length False
+    --show_length False \
+    --train_data_path data/split/all_data.csv \
+    --output_dir ./output/gemma2-ct \
+    --run_name gemma-ct-lora-all-1e-4 \
+    --pretrain_lora ./output/gemma2-ct/gemma-ct-lora-all/checkpoint-935 \
+    --eval_on_start True

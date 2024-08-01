@@ -1,6 +1,47 @@
 import re
 import torch
-from transformers import PreTrainedTokenizerBase
+from torch import nn
+from transformers import PreTrainedTokenizerBase, Trainer
+
+
+def get_optimizer_grouped_parameters(model, base_lr, score_lr, weight_decay):
+    no_decay = ["bias", "layernorm"]
+    optimizer_grouped_parameters = [
+        {
+            "params": [p for n, p in model.named_parameters() if "score" in n and not any(nd in n for nd in no_decay)],
+            "lr": score_lr,
+            "weight_decay": weight_decay,
+        },
+        {
+            "params": [p for n, p in model.named_parameters() if "score" in n and any(nd in n for nd in no_decay)],
+            "lr": score_lr,
+            "weight_decay": 0.0,
+        },
+        {
+            "params": [p for n, p in model.named_parameters() if "score" not in n and not any(nd in n for nd in no_decay)],
+            "lr": base_lr,
+            "weight_decay": weight_decay,
+        },
+        {
+            "params": [p for n, p in model.named_parameters() if "score" not in n and any(nd in n for nd in no_decay)],
+            "lr": base_lr,
+            "weight_decay": 0.0,
+        },
+    ]
+    return optimizer_grouped_parameters
+
+
+class CustomTrainer(Trainer):
+    def compute_loss(self, model, inputs, return_outputs=False):
+        labels = inputs.get("labels")
+
+        outputs = model(**inputs)
+        logits = outputs.get("logits")
+
+        device = logits.device
+        loss_fct = nn.CrossEntropyLoss(weight=torch.tensor([1, 1, 1.2], dtype=torch.bfloat16).to(device))
+        loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
+        return (loss, outputs) if return_outputs else loss
 
 
 def is_only_whitespace(s):

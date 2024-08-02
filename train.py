@@ -24,7 +24,7 @@ from text_process import TextProcessorV2
 
 os.environ["WANDB_PROJECT"] = "LMSYS_Text_ClS"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["HF_TOKEN"] = "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"
+os.environ["HF_TOKEN"] = "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"
 
 @dataclass
 class ModelArguments:
@@ -71,6 +71,8 @@ class TrainingArguments(transformers.TrainingArguments):
     lora_target: str = field(default="all-linear")
     layers_to_transform: int = field(default=0)
     use_dora: bool = field(default=False)
+    
+    push_to_hub: bool = field(default=False)
 
     gradient_checkpointing: bool = field(default=True)
     eval_steps: float = field(default=0.2)
@@ -285,7 +287,9 @@ def train():
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         compute_metrics=compute_metrics,
-        data_collator=DataCollatorWithPadding(tokenizer=tokenizer)    )
+        data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
+        
+    )
     if training_args.llrd_enable:
         optimizer_grouped_parameters = get_optimizer_grouped_parameters(
             model,
@@ -296,10 +300,11 @@ def train():
         trainer.optimizer = optimizer
     trainer.log({"text_process_parameter": hyper_parameter})
     trainer.train()
-
     val_result = trainer.evaluate(val_dataset, metric_key_prefix="val")
 
     test_result = trainer.evaluate(test_dataset, metric_key_prefix="test")
+    if training_args.push_to_hub:
+        model.push_to_hub("ct-lora")
     with open(os.path.join(training_args.output_dir, "result.json"), "w") as f:
         json.dump([test_result, val_result], f)
 

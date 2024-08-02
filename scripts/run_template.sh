@@ -3,14 +3,17 @@ export WANDB_API_KEY="2f787b5e67ea6f6970182ba8f57f0a61060d7d12"
 deepspeed train.py \
     --model_name_or_path google/gemma-2-9b-it \
     --model_max_length 2048 \
-    --deepspeed ./scripts/zero3.json \
-    --lora_enable False \
-    --output_dir "a100_gemma_template_with_token_num_eos_FT_1e-5_warmup0.05_score1e-4" \
+    --deepspeed ./scripts/zero2.json \
+    --lora_enable True \
+    --lora_r 16 \
+    --lora_alpha 32 \
+    --lora_target "[\"q_proj\", \"k_proj\", \"v_proj\", \"o_proj\", \"gate_proj\"]" \
+    --output_dir "a100_ct_lora" \
     --report_to "wandb" \
     --bf16 True \
     --num_train_epochs 1 \
-    --per_device_train_batch_size 8 \
-    --per_device_eval_batch_size 8 \
+    --per_device_train_batch_size 4 \
+    --per_device_eval_batch_size 4 \
     --gradient_accumulation_steps 1 \
     --save_strategy "no" \
     --lr_scheduler_type "cosine" \
@@ -18,45 +21,20 @@ deepspeed train.py \
     --save_total_limit 1 \
     --save_steps 0.2 \
     --layers_to_transform 0 \
-    --learning_rate 1e-5 \
-    --score_lr 1e-4 \
-    --llrd_enable True \
-    --warmup_ratio 0.05 \
-    --truncation_method right \
+    --learning_rate 2e-4 \
+    --warmup_steps 20 \
+    --truncation_method left \
     --length_assign_method method_2 \
-    --chat_template "template_with_token_num_eos"
-deepspeed train.py \
-    --model_name_or_path google/gemma-2-9b-it \
-    --model_max_length 2048 \
-    --deepspeed ./scripts/zero3.json \
-    --lora_enable False \
-    --output_dir "a100_gemma_template_with_token_num_eos_FT_1e-5_warmup0.1_score5e-4" \
-    --report_to "wandb" \
-    --bf16 True \
-    --num_train_epochs 1 \
-    --per_device_train_batch_size 8 \
-    --per_device_eval_batch_size 8 \
-    --gradient_accumulation_steps 1 \
-    --save_strategy "no" \
-    --lr_scheduler_type "cosine" \
-    --dataloader_num_workers 4 \
-    --save_total_limit 1 \
-    --save_steps 0.2 \
-    --layers_to_transform 0 \
-    --learning_rate 1e-5 \
-    --score_lr 5e-4 \
-    --llrd_enable True \
-    --warmup_ratio 0.05 \
-    --truncation_method right \
-    --length_assign_method method_2 \
-    --chat_template "template_with_token_num_eos"
+    --chat_template "template_with_token_num_eos" \
+    --push_to_hub True \
+    --train_data_path data/lmsys_33k_clean.csv
 
 deepspeed train.py \
     --model_name_or_path google/gemma-2-9b-it \
     --model_max_length 2048 \
     --deepspeed ./scripts/zero3.json \
     --lora_enable False \
-    --output_dir "a100_gemma_template_with_token_num_eos_FT_1e-5_warmup0.1_score1e-4" \
+    --output_dir "a100_gemma_template_with_token_num_eos_FT_5e-6_warmup0.1_score5e-5" \
     --report_to "wandb" \
     --bf16 True \
     --num_train_epochs 1 \
@@ -69,12 +47,36 @@ deepspeed train.py \
     --save_total_limit 1 \
     --save_steps 0.2 \
     --layers_to_transform 0 \
-    --learning_rate 1e-5 \
-    --score_lr 1e-4 \
+    --learning_rate 5e-6 \
+    --score_lr 5e-5 \
     --llrd_enable True \
     --warmup_ratio 0.1 \
-    --truncation_method right \
+    --truncation_method left \
     --length_assign_method method_2 \
     --chat_template "template_with_token_num_eos"
 
-
+deepspeed train.py \
+    --model_name_or_path google/gemma-2-9b-it \
+    --model_max_length 2048 \
+    --deepspeed ./scripts/zero3.json \
+    --lora_enable False \
+    --output_dir "a100_gemma_template_with_token_num_eos_FT_1e-6_warmup0.1_score2e-5" \
+    --report_to "wandb" \
+    --bf16 True \
+    --num_train_epochs 1 \
+    --per_device_train_batch_size 8 \
+    --per_device_eval_batch_size 8 \
+    --gradient_accumulation_steps 1 \
+    --save_strategy "no" \
+    --lr_scheduler_type "cosine" \
+    --dataloader_num_workers 4 \
+    --save_total_limit 1 \
+    --save_steps 0.2 \
+    --layers_to_transform 0 \
+    --learning_rate 1e-6 \
+    --score_lr 2e-5 \
+    --llrd_enable True \
+    --warmup_ratio 0.1 \
+    --truncation_method left \
+    --length_assign_method method_2 \
+    --chat_template "template_with_token_num_eos"

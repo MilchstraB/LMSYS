@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Union
 import torch
 import transformers
 from datasets import Dataset
-from peft import LoraConfig, TaskType, get_peft_model
+from peft import LoraConfig, TaskType, get_peft_model, PeftModel
 from sklearn.metrics import accuracy_score, log_loss
 from transformers import (
     AutoModelForSequenceClassification,
@@ -19,6 +19,7 @@ from transformers import (
 )
 
 from text_process import TextProcessorV2
+from utils import print_rank_0
 
 os.environ["WANDB_PROJECT"] = "LMSYS_Text_ClS"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -56,6 +57,7 @@ class DataArguments:
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
     filter_long_text: str = field(default=None)
+    pretrain_lora: str = field(default=None)
 
     lora_enable: bool = field(default=True)
     lora_r: int = field(default=16)
@@ -204,7 +206,12 @@ def train():
             task_type=TaskType.SEQ_CLS,
             use_dora=training_args.use_dora,
         )
-        model = get_peft_model(model, lora_config)
+
+        if training_args.pretrain_lora:
+            print_rank_0(f"Loading pretrain lora weight from {training_args.pretrain_lora}...")
+            model = PeftModel.from_pretrained(model, training_args.pretrain_lora, is_trainable=True)
+        else:
+            model = get_peft_model(model, lora_config)
 
     # prepare data
     train_dataset = Dataset.from_csv(data_args.train_data_path)
